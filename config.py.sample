@@ -1,0 +1,15 @@
+# encoding: utf-8
+
+# username etc to connect postgres server
+services_server = 'database.server.domain.tld'
+services_database = 'services'
+services_username = 'server_user'
+services_password = 'secret'
+
+# Select services on this server
+servers = ['bind', 'apache']
+
+# some logging settings
+debug = True
+database_debug = True
+log_file = 'renkisrv.log'
