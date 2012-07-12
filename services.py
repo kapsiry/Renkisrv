@@ -19,7 +19,7 @@ class DatabaseError(Exception):
 class DoesNotExist(Exception):
     def __init__(self, value):
         self.value = value
-        
+
     def __str__(self):
         return "%s" % self.value
 
@@ -74,7 +74,7 @@ class Services():
                 self.tables['s_vhosts_history'] = S_vhosts_history
             if 't_domains' in self.conf.tables:
                 t_domains = Table('t_domains', metadata,
-                    #Column("t_domains_id", Integer, primary_key=True), 
+                    #Column("t_domains_id", Integer, primary_key=True),
                     autoload=True)
                 mapper(T_domains, t_domains)
                 self.tables['t_domains'] = T_domains
@@ -82,21 +82,22 @@ class Services():
                 autoload=True)
                 mapper(T_domains_history, t_domains_history)
                 self.tables['t_domains_history'] = T_domains_history
+            if 's_user_ports' in self.conf.tables:
+                s_user_ports = Table('s_user_ports', metadata,
+                    autoload=True)
+                mapper(S_user_ports, s_user_ports)
+                self.tables['s_user_ports'] = S_user_ports
+                s_user_ports_history = Table('s_user_ports_history', metadata,
+                autoload=True)
+                mapper(S_user_ports, s_user_ports_history)
+                self.tables['s_user_ports_history'] = S_user_ports_history
             Session = sessionmaker(bind=self.db)
             self.session = Session()
         except OperationalError as e:
             raise RuntimeError(e)
-            
+
     def reconnect(self):
         self.session.rollback()
-        
-    #class S_vhosts(Base):
-    #    __table__ = 's_vhosts'
-    #    __table_args__ = (
-    #    Column("t_vhosts_id", Integer, primary_key=True),
-    #    {'autoload':True}
-    #    )
-    #    domain = relationship(T_domains, primaryjoin=t_domains_id == T_domains.t_domains_id)
 
 class T_domains(object):
     pass
@@ -113,3 +114,8 @@ class S_vhosts(object):
 class S_vhosts_history(object):
     pass
 
+class S_user_ports_history(object):
+    pass
+
+class S_user_ports(object):
+    pass

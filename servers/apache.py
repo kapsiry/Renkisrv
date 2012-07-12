@@ -18,7 +18,7 @@ class RenkiServer(renkiserver.RenkiServer):
             self.log.debug('Vhost name: %s' % sqlobject.name)
             self.log.debug('%s' % vars(sqlobject))
         return True
-        
+
     def update(self, old_sqlobject, new_sqlobject, table):
         """Process dns configs to server"""
         if table == 's_vhosts':

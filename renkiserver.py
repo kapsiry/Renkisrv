@@ -10,10 +10,10 @@ class RenkiServer(threading.Thread):
         self.name = 'dummy'
         self.stop = False
         self.log = logging.getLogger('RenkiServer')
-    
+
     def kill(self):
         self.stop = True
-    
+
     def add(self, sqlobject):
         self.queue.insert(0,sqlobject)
 
@@ -23,7 +23,7 @@ class RenkiServer(threading.Thread):
         table contains name of name
         """
         return True
-        
+
     def update(self,old_sqlobject, new_sqlobject,table):
         """Do something on update to table <table>
         old_sqlobject contains row before update

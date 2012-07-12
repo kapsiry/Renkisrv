@@ -9,7 +9,7 @@ class RenkiServer(renkiserver.RenkiServer):
         renkiserver.RenkiServer.__init__(self)
         self.name = 'dns'
         self.tables = ['t_domains']
-        
+
     def parse_inetlist(self, inetlist):
         if not inetlist:
             return None
@@ -31,7 +31,7 @@ class RenkiServer(renkiserver.RenkiServer):
             sqlobject.masters = self.parse_inetlist(sqlobject.masters)
             self.log.debug('%s' % vars(sqlobject))
         return True
-        
+
     def update(self, old_sqlobject, new_sqlobject, table):
         """Process dns configs to server"""
         if table == 't_domains':

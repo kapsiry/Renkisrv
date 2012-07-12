@@ -10,7 +10,7 @@ from pprint import pprint
 
 
 # Format 'variable name' : 'Default value'
-# If default value is mandatory(), setting is mandatory and if setting not found on config 
+# If default value is mandatory(), setting is mandatory and if setting not found on config
 # ConfigError is raised
 
 class mandatory():
@@ -30,10 +30,10 @@ default_variables = {
 class ConfigError(Exception):
     def __init__(self, value):
         self.value = value
-        
+
     def __str__(self):
         return "Config setting %s is mandatory!" % self.value
-        
+
     def __unicode__(self):
         print unicode(self.__str__())
 
@@ -44,14 +44,13 @@ class Config():
         self.services = {}
         self.log = logging.getLogger('renkisrv')
         self._check_config()
-        
+
     def _check_config(self):
         for var in self.variables:
-            try: 
+            try:
                 getattr(self,var)
             except AttributeError:
                 self._check_variable(var)
-                    
 
     def _check_variable(self, name):
         if not name:
@@ -70,7 +69,6 @@ class Config():
         for table in tables:
             if table not in self.tables:
                 self.tables.append(table)
-            
 
     def add_setting(self,name,default=mandatory):
         if name:
