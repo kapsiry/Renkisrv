@@ -25,7 +25,9 @@ default_variables = {
     'servers': None,
     'debug': False,
     'database_debug': False,
-    'log_file' : None}
+    'log_file' : None,
+    'hostnames' : mandatory
+    }
 
 class ConfigError(Exception):
     def __init__(self, value):

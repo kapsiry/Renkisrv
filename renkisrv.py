@@ -83,6 +83,7 @@ class RenkiSrv(object):
             try:
                 module = __import__('servers.%s' % server)
                 worker = vars(module)[server].RenkiServer()
+                worker.conf = self.conf
                 self.workers.append(worker)
                 self.conf.add_tables(worker.tables)
             except ImportError:
@@ -136,6 +137,7 @@ class RenkiSrv(object):
             for num in restart:
                 oldworker = self.workers[num]
                 worker = oldworker.__class__()
+                worker.conf = self.conf
                 worker.start()
                 self.workers[num] = worker
                 for work in self.workqueue:
@@ -222,7 +224,8 @@ class RenkiSrv(object):
                 except IntegrityError or OperationalError or ProgrammingError as e:
                     self.log.error('Error while getting changed data')
                     self.log.exception(e)
-
+            else:
+                self.log.debug('No plugins for table %s' % change.table)
 
     def killall(self):
         """Kill all workers"""

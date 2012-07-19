@@ -41,12 +41,16 @@ class Services():
         else:
             self.verbose = False
             logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
+        self.log = logging.getLogger('services')
+        self.log.info('Connecting to database')
         self.connect()
+        self.log.info('Connected to database')
         self.session = None
+        self.log.info('Getting database schema')
         self.getSession()
+        self.log.info('Got database schema')
         if not self.session:
             raise RuntimeError('Invalid login')
-        self.log = logging.getLogger('services')
 
     def connect(self):
         connstring = "postgresql://%s:%s" % (self.conf.services_username,self.conf.services_password)
@@ -84,12 +88,13 @@ class Services():
                 self.tables['t_domains_history'] = T_domains_history
             if 's_user_ports' in self.conf.tables:
                 s_user_ports = Table('s_user_ports', metadata,
+                    Column("t_user_ports_id", Integer, primary_key=True),
                     autoload=True)
                 mapper(S_user_ports, s_user_ports)
                 self.tables['s_user_ports'] = S_user_ports
                 s_user_ports_history = Table('s_user_ports_history', metadata,
                 autoload=True)
-                mapper(S_user_ports, s_user_ports_history)
+                mapper(S_user_ports_history, s_user_ports_history)
                 self.tables['s_user_ports_history'] = S_user_ports_history
             Session = sessionmaker(bind=self.db)
             self.session = Session()

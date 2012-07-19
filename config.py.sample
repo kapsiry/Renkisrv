@@ -1,5 +1,8 @@
 # encoding: utf-8
 
+# My hostnames
+hostnames = ['server.example.com', 'server2.example.com']
+
 # username etc to connect postgres server
 services_server = 'database.server.domain.tld'
 services_database = 'services'

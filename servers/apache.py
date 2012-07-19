@@ -11,7 +11,7 @@ class RenkiServer(renkiserver.RenkiServer):
         self.tables = ['s_vhosts']
 
     def insert(self, sqlobject, table):
-        """Process dns configs to server"""
+        """Process apache configs to server"""
         print('TABLE: %s' % table)
         if table == 's_vhosts':
             self.log.debug('Creating some apache configs here...')
@@ -20,7 +20,7 @@ class RenkiServer(renkiserver.RenkiServer):
         return True
 
     def update(self, old_sqlobject, new_sqlobject, table):
-        """Process dns configs to server"""
+        """Process apache configs to server"""
         if table == 's_vhosts':
             self.log.debug('Updating some apache configs here...')
             self.log.debug('Vhost name: %s' % new_sqlobject.name)
@@ -28,7 +28,7 @@ class RenkiServer(renkiserver.RenkiServer):
         return True
 
     def delete(self, sqlobject, table):
-        """Process dns configs to server"""
+        """Process apache configs to server"""
         if table == 's_vhosts':
             self.log.debug('Deleting some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)
