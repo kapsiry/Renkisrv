@@ -1,4 +1,4 @@
-Renkisrv is server side client for Services database.
+Renkisrv is server-side client for Services database.
 
 Renkisrv is used to create, modify and delete configs based on database 
 changes.
