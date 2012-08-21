@@ -78,7 +78,7 @@ class RenkiSrv(object):
             sleep(5)
 
     def populate_workers(self):
-        """ynamically import servers set on config"""
+        """Populate workers list with service workers"""
         for server in self.conf.servers:
             try:
                 module = __import__('servers.%s' % server)

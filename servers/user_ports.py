@@ -21,7 +21,8 @@ class RenkiServer(renkiserver.RenkiServer):
         self.log.debug('Creating some firewall configs here...')
         if not sqlobject.unix_id:
             self.log.error('Cannot add port %s, unix_id unknown' % sqlobject.port)
-
+            return True
+        self.log.debug('User %s, port %s' % (sqlobject.unix_id, sqlobject.port))
         return True
 
     def update(self, old_sqlobject, new_sqlobject, table):

@@ -12,6 +12,21 @@ services_password = 'secret'
 # Select services on this server
 servers = ['bind', 'apache']
 
+# some apache configs
+# is apache ssl-compantible? Default False
+apache_ssl = True
+## default ssl-cert domain
+apache_ssl_domain = 'example.com'
+## log directory, Default /var/log/apache2
+#apache_log_dir = '/var/log/apache2/'
+## config directory (vhosts.conf, links.conf), Default /etc/apache2/
+#apache_conf_dir = '/etc/apache2/autovhosts/'
+
+## apache default certificate config
+#apache_defalt_cert = '/etc/apache/server.crt'
+#apache_default_key = '/etc/apache/server.key'
+#apache_default_cacrt =  '/etc/apache/ca.crt'
+
 # some logging settings
 debug = True
 database_debug = True

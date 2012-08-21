@@ -26,6 +26,13 @@ default_variables = {
     'debug': False,
     'database_debug': False,
     'log_file' : None,
+    'apache_ssl': False,
+    'apache_ssl_domain': None,
+    'apache_log_dir': '/var/log/apache2',
+    'apache_conf_dir': '/etc/apache2/',
+    'apache_default_ssl_key': None,
+    'apache_default_ssl_crt': None,
+    'apache_default_ssl_cacrt': None,
     'hostnames' : mandatory
     }
 
