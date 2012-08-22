@@ -86,8 +86,6 @@ class RenkiServer(renkiserver.RenkiServer):
         renkiserver.RenkiServer.__init__(self)
         self.name = 'apache'
         self.tables = ['s_vhosts']
-        self.vhosts_file = 'vhosts.conf'
-        self.links_file = 'links.conf'
 
     class Vhost(object):
         def __init__(self, main, sqlobject = None):
@@ -104,6 +102,7 @@ class RenkiServer(renkiserver.RenkiServer):
             self.cacrt = None
             self.logdir = None
             self.uid = None
+            self.conf = os.path.join(self.main.conf.apache_vhosts_dir,"%s.conf" % self.name)
             self.default_crt = ''
             if sqlobject:
                 self.from_sqlobject(sqlobject)
@@ -225,12 +224,26 @@ class RenkiServer(renkiserver.RenkiServer):
                 return True
             return False
 
-        def create(self):
+        def write(self):
             self.test_ssl()
             # create dirs
-            b = Process(target=create_dirs, args(selfs))
+            b = Process(target=create_dirs, args(self))
             b.start()
             b.join()
+            try:
+                f = open(os.path.join(self.main.conf.apache_vhosts_dir,"%s.conf" % self.name),'w+')
+            except IOError:
+                self.main.log.error('Cannot write to file %s! Please check config' % 
+                    os.path.join(self.main.conf.apache_vhosts_dir,"%s.conf" % self.name))
+            f.write(self.as_text())
+            f.write(self.as_text(True))
+
+        def remove(self):
+            try:
+                if os.path.exist(self.conf):
+                    self.remove(self.conf)
+            except IOError as e:
+                self.main.log.error('Cannot remove file %s, %s' % (self.conf, e))
 
         def as_text(self, ssl=False):
             if ssl and not self.ssl:
@@ -259,7 +272,8 @@ class RenkiServer(renkiserver.RenkiServer):
             return retval
 
     def get_vhost(self, vhost):
-        """Get vhost object from file"""
+        """Get vhost object from file
+        USELESS!!!!"""
         vhost = self.Vhost(self)
         try:
             f = open(os.path.join(self.conf.apache_conf_dir, self.vhosts_file), 'r')
@@ -297,20 +311,6 @@ class RenkiServer(renkiserver.RenkiServer):
 	                return vhost
 	        f.close()
 
-    def add_vhost(self, vhost):
-        """Add vhost object to file"""
-        # create vhost dependencies
-        # vhost.create()
-        try:
-            f = open(os.path.join(self.conf.apache_conf_dir, self.vhosts_file), 'a')
-        except IOError:
-            log.error('File %s does not exist! Please check config' % os.path.join(
-                      self.conf.apache_conf_dir, self.vhosts_file))
-        f.write("\n")
-        f.write(vhost.as_text())
-        f.write(vhost.as_text(ssl=True))
-        f.close()
-
     def insert(self, sqlobject, table):
         """Process apache configs to server"""
         print('TABLE: %s' % table)
@@ -318,13 +318,9 @@ class RenkiServer(renkiserver.RenkiServer):
             self.log.debug('Creating some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)
             self.log.debug('%s' % vars(sqlobject))
-            vhost = self.get_vhost(sqlobject.name)
-            if vhost:
-                self.log.error('Cannot insert vhost %s, already exist' % sqlobject.name)
-                return True
             vhost = self.Vhost(self, sqlobject)
             self.log.debug(vhost.as_text())
-            self.add_vhost(vhost)
+            vhost.write()
         return True
 
     def update(self, old_sqlobject, new_sqlobject, table):

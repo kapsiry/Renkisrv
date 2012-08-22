@@ -21,6 +21,8 @@ apache_ssl_domain = 'example.com'
 #apache_log_dir = '/var/log/apache2/'
 ## config directory (vhosts.conf, links.conf), Default /etc/apache2/
 #apache_conf_dir = '/etc/apache2/autovhosts/'
+## directory where apache holds per vhost files
+#apache_vhosts_dir = '/etc/apache2/vhosts.d/
 
 ## apache default certificate config
 #apache_defalt_cert = '/etc/apache/server.crt'

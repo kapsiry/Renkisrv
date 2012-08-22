@@ -33,6 +33,7 @@ default_variables = {
     'apache_default_ssl_key': None,
     'apache_default_ssl_crt': None,
     'apache_default_ssl_cacrt': None,
+    'apache_vhosts_dir': None,
     'hostnames' : mandatory
     }
 

@@ -3,6 +3,16 @@ Renkisrv is server-side client for Services database.
 Renkisrv is used to create, modify and delete configs based on database 
 changes.
 
+Installation:
+
+virtualenv env
+. env/bin/activate
+pip install -r requirements.txt
+cp config.py.sample config.py 
+$EDITOR config.py
+./renkisrv
+
+
 Licensed under MIT-license.
 
 Copyright (c) 2012 Kapsi Internet-käyttäjät ry
