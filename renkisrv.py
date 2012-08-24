@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from services import *
 import sys

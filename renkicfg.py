@@ -14,34 +14,42 @@ from pprint import pprint
 # ConfigError is raised
 
 class mandatory():
-    pass
+    def __init__(self, module=None, variable=None):
+        self.module = module
+        self.variable = variable
 
-default_variables = {
-    'services_username': mandatory,
-    'services_password' : mandatory,
-    'services_port': None,
-    'services_server' : mandatory,
-    'services_database' : mandatory,
-    'servers': None,
-    'debug': False,
-    'database_debug': False,
-    'log_file' : None,
-    'apache_ssl': False,
-    'apache_ssl_domain': None,
-    'apache_log_dir': '/var/log/apache2/%(vhost)s',
-    'apache_default_ssl_key': None,
-    'apache_default_ssl_crt': None,
-    'apache_default_ssl_cacrt': None,
-    'apache_vhosts_dir': '/etc/apache2/',
-    'apache_documentroot': '/var/www/',
-    'hostnames' : mandatory
-    }
+default_variables = [
+    ('servers', None),
+    ('services_username', mandatory()),
+    ('services_password', mandatory()),
+    ('services_port', None),
+    ('services_server', mandatory()),
+    ('services_database', mandatory()),
+    ('debug', False),
+    ('database_debug', False),
+    ('log_file', None),
+    ('apache_ssl', False),
+    ('apache_ssl_domain', mandatory(variable='apache_ssl')),
+    ('apache_log_dir', '/var/log/apache2/%(vhost)s'),
+    ('apache_default_ssl_key', mandatory(variable='apache_ssl')),
+    ('apache_default_ssl_crt', mandatory(variable='apache_ssl')),
+    ('apache_default_ssl_cacrt', None),
+    ('apache_vhosts_dir', '/etc/apache2/'),
+    ('apache_documentroot', '/var/www/'),
+    ('bind_secret', mandatory(module='bind')),
+    ('bind_secret_type', mandatory(module='bind')),
+    ('hostnames' , mandatory())
+    ]
 
 class ConfigError(Exception):
-    def __init__(self, value):
+    def __init__(self, value, dependency=None):
         self.value = value
+        self.dependency = dependency
 
     def __str__(self):
+        if self.dependency:
+            return "Config setting %s is mandatory if %s is set!" % (self.value,
+                                                                self.dependency)
         return "Config setting %s is mandatory!" % self.value
 
     def __unicode__(self):
@@ -50,17 +58,18 @@ class ConfigError(Exception):
 class Config():
     def __init__(self):
         self.variables = default_variables
+        self.variables_dict = dict({key: value for key,value in self.variables})
         self.tables = ['t_change_log']
         self.services = {}
         self.log = logging.getLogger('renkisrv')
         self._check_config()
 
     def _check_config(self):
-        for var in self.variables:
+        for key, value in self.variables:
             try:
-                getattr(self,var)
+                getattr(self,key)
             except AttributeError:
-                self._check_variable(var)
+                self._check_variable(key)
 
     def _check_variable(self, name):
         if not name:
@@ -70,19 +79,33 @@ class Config():
             setattr(self,name,globals()[name])
             return
         except KeyError:
-            if self.variables[name] == mandatory:
+            if type(self.variables_dict[name]) == type(mandatory()):
+                if self.servers:
+                    if not self.variables_dict[name].module and not self.variables_dict[name].variable:
+                        raise ConfigError(name)
+                    if self.variables_dict[name].module not in self.servers:
+                        if self.variables_dict[name].variable:
+                            try:
+                                if not getattr(self,self.variables_dict[name].variable):
+                                    return
+                            except:
+                                raise RuntimeError('BUG: Config variable %s must be defined before %s' % (
+                                        self.variables_dict[name].variable, name))
+                            raise ConfigError(name, self.variables_dict[name].variable)
+                        else:
+                            return
                 raise ConfigError(name)
             else:
-                setattr(self,name,self.variables[name])
+                setattr(self,name,self.variables_dict[name])
 
     def add_tables(self,tables):
         for table in tables:
             if table not in self.tables:
                 self.tables.append(table)
 
-    def add_setting(self,name,default=mandatory):
+    def add_setting(self,name,default=mandatory()):
         if name:
-            if name in self.variables:
+            if name in self.variables_dict:
                 raise RuntimeError('Config %s already set!' % name)
-            self.variables[name] = default
+            self.variables_dict[name] = default
             self._check_config()
