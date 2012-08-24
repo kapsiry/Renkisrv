@@ -36,10 +36,12 @@ def recursive_mkdir(directory):
     for p in directory.split('/'):
         if len(p) == 0:
             continue
+        if len(path) == 0 and directory[0] == '/':
+            p = '/%s' % p
         path.append(p)
         subpath = os.path.join(*path)
-        if os.path.exist(subpath) and not os.path.isdir(subpath):
+        if os.path.exists(subpath) and not os.path.isdir(subpath):
             raise IOError('Path %s is exist but not directory' % subpath)
-        if not os.path.isdir(subpath):
+        if not os.path.exists(subpath) and not os.path.isdir(subpath):
             os.mkdir(subpath)
     return True

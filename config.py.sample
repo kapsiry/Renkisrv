@@ -17,17 +17,23 @@ servers = ['bind', 'apache']
 apache_ssl = True
 ## default ssl-cert domain
 apache_ssl_domain = 'example.com'
-## log directory, Default /var/log/apache2
-#apache_log_dir = '/var/log/apache2/'
-## config directory (vhosts.conf, links.conf), Default /etc/apache2/
-#apache_conf_dir = '/etc/apache2/autovhosts/'
+
+## per vhost log directory, Default /var/log/apache2
+## %(vhost)s and %(user)s allowed
+#apache_log_dir = '/home/ajaakkola/apache2/logs/%(vhost)s'
+
 ## directory where apache holds per vhost files
 #apache_vhosts_dir = '/etc/apache2/vhosts.d/
+
+## apache vhost document root
+## %(user)s, %(type)s and %(vhost)s can be used
+# %(type)s is either "www" or "secure-www"
+apache_documentroot = '/var/www/userhomes/%(user)s/sites/%(vhost)s/%(type)s'
 
 ## apache default certificate config
 #apache_defalt_cert = '/etc/apache/server.crt'
 #apache_default_key = '/etc/apache/server.key'
-#apache_default_cacrt =  '/etc/apache/ca.crt'
+#apache_default_cacrt = '/etc/apache/ca.crt'
 
 # some logging settings
 debug = True

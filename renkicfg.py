@@ -28,12 +28,12 @@ default_variables = {
     'log_file' : None,
     'apache_ssl': False,
     'apache_ssl_domain': None,
-    'apache_log_dir': '/var/log/apache2',
-    'apache_conf_dir': '/etc/apache2/',
+    'apache_log_dir': '/var/log/apache2/%(vhost)s',
     'apache_default_ssl_key': None,
     'apache_default_ssl_crt': None,
     'apache_default_ssl_cacrt': None,
-    'apache_vhosts_dir': None,
+    'apache_vhosts_dir': '/etc/apache2/',
+    'apache_documentroot': '/var/www/',
     'hostnames' : mandatory
     }
 

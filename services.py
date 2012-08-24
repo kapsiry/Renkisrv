@@ -1,6 +1,7 @@
 from sqlalchemy import Table, Column, Integer, create_engine, MetaData, select
 from sqlalchemy.orm import mapper, sessionmaker, synonym, relationship
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.ext.declarative import declarative_base
@@ -53,11 +54,9 @@ class Services():
             raise RuntimeError('Invalid login')
 
     def connect(self):
-        connstring = "postgresql://%s:%s" % (self.conf.services_username,self.conf.services_password)
-        connstring += "@%s" % self.conf.services_server
+        connstring = URL('postgresql', username=self.conf.services_username, password=self.conf.services_password, database=self.conf.services_database, host=self.conf.services_server)
         if self.conf.services_port:
-            connstring += ":%s" % self.conf.services_port
-        connstring += "/%s" % self.conf.services_database
+            connstring = URL('postgresql', username=self.conf.services_username, password=self.conf.services_password, database=self.conf.services_database, host=self.conf.services_server, port=self.conf.services_port)
         self.db = create_engine(connstring,encoding='utf-8', echo=self.verbose, pool_recycle=360)
 
     def getSession(self):

@@ -42,7 +42,10 @@ class RenkiSrv(object):
         self.connect()
         self.log.debug("Initialized RenkiSrv")
         latest = self.srv.session.query(Change_log).order_by(Change_log.created.desc()).first()
-        self.latest_transaction = latest.transaction_id
+        try:
+            self.latest_transaction = latest.transaction_id
+        except:
+            self.latest_transaction = 0
         # do not leave open transaction
         self.srv.session.commit()
 
