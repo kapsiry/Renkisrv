@@ -37,7 +37,10 @@ default_variables = [
     ('apache_vhosts_dir', '/etc/apache2/'),
     ('apache_documentroot', '/var/www/'),
     ('bind_secret', mandatory(module='bind')),
-    ('bind_secret_type', mandatory(module='bind')),
+    ('bind_secret_name', mandatory(module='bind')),
+    ('bind_zones_conf', '/etc/bind/zones.conf'),
+    ('bind_zones_dir', mandatory(module='bind')),
+    ('bind_master', True),
     ('hostnames' , mandatory())
     ]
 

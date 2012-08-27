@@ -9,6 +9,7 @@ class RenkiServer(threading.Thread):
         self.queue = []
         self.name = 'dummy'
         self.conf = None
+        self.srv = None
         self.stop = False
         self.log = logging.getLogger('RenkiServer')
 
@@ -54,7 +55,6 @@ class RenkiServer(threading.Thread):
                     for label in sqlobject._labels:
                         if label is not 'Change_log':
                             if not label.endswith('_history'):
-                                print("NEWOBJECT : %s" % label)
                                 mynewobject = vars(sqlobject)[label]
                             elif label.endswith('_history'):
                                 myoldobject = vars(sqlobject)[label]

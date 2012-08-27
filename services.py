@@ -95,6 +95,10 @@ class Services():
                 autoload=True)
                 mapper(S_user_ports_history, s_user_ports_history)
                 self.tables['s_user_ports_history'] = S_user_ports_history
+            s_services = Table('s_services', metadata,
+                    Column("t_services_id", Integer, primary_key=True),
+                    autoload=True)
+            mapper(S_services, s_services)
             Session = sessionmaker(bind=self.db)
             self.session = Session()
         except OperationalError as e:
@@ -122,4 +126,7 @@ class S_user_ports_history(object):
     pass
 
 class S_user_ports(object):
+    pass
+
+class S_services(object):
     pass

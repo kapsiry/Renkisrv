@@ -37,6 +37,8 @@ class RenkiSrv(object):
             log.exception(e)
             log.error("Cannot login to server, please check config")
             sys.exit(1)
+        for worker in self.workers:
+            worker.srv = self.srv
         self.conn = None
         self.cursor = None
         self.connect()
@@ -91,7 +93,7 @@ class RenkiSrv(object):
                 self.conf.add_tables(worker.tables)
             except ImportError:
                 self.log.error('Cannot import nonexistent server %s' % server)
-                self.log.error('Check our config' % server)
+                self.log.error('Check config')
                 sys.exit(1)
 
     def feed_workers(self):
@@ -124,6 +126,7 @@ class RenkiSrv(object):
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
                         self.log.info('Got notify: pid: %s, channel: %s, payload: %s' % (notify.pid, notify.channel, notify.payload))
+                        #sleep(1)
                         self.feed_workers()
             except OperationalError as e:
                 log.exception(e)
@@ -176,7 +179,7 @@ class RenkiSrv(object):
             if change.table in self.srv.tables:
                 self.log.debug('Action %s in table %s' % (change.event_type, change.table))
                 results = []
-                print("Transaction_id: %s" % str(change.transaction_id))
+                self.log.debug("Transaction_id: %s" % str(change.transaction_id))
                 """results = self.srv.session.execute("SELECT *,xmin,xmax FROM %s WHERE xmin = :transaction" % change.table,
                     {'transaction' : str(change.transaction_id)},
                     mapper=self.srv.tables[change.table]).fetchall()"""
@@ -218,7 +221,7 @@ class RenkiSrv(object):
                             Change_log.table == change.table).filter(
                             Change_log.event_type == 'DELETE').filter(
                             Change_log.t_change_log_id == change.t_change_log_id).all()
-                    print("RESULTS: %s" % results)
+                    self.log.debug("RESULTS: %s" % results)
                     for result in results:
                         self.workqueue.append(change)
                         for worker in self.workers:

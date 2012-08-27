@@ -22,15 +22,19 @@ Create required dirs if not already exists.
 Add "include your_apache_vhosts_dir/*.conf" to apache2.conf
 
 # Getting started with bind
-Add "acl "slaves"" to named.conf.local
-Eg. "acl "slaves" { myslave; myotherslave; };"
+# if bind is master:
+Add "acl "ns-slaves"" to named.conf.local
+Eg. "acl "ns-slaves" { myslave; myotherslave; };"
+# else:
+Add "acl "ns-master"" to named.conf.local
+Eg. "acl "ns-master" { mymaster; };"
 
 Create dnssec key for dynamic updates
-dnssec-keygen -a HMAC-SHA512 -b 512 -n USER hostmaster_address.domain.dom
-Copy secret from Khostmaster_address.domain.dom.+whatever.key
-Add line "key "renkisrv" {algorithm hmac-sha512; secret "paste secret here"};"
+dnssec-keygen -a HMAC-SHA512 -b 512 -n USER renkisrv
+Copy secret from Krenkisrv.+whatever.key
+Add line "key "renkisrv." {algorithm hmac-sha512; secret "paste secret here"};"
 
-Copy secret from Khostmaster_address.domain.dom.+whatever.private and paste it
+Copy secret from Krenkisrv.+whatever.private and paste it
 to config.py file.
 Add key type (hmac-sha512) to config.py file
 

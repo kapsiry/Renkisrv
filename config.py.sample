@@ -35,6 +35,20 @@ apache_documentroot = '/var/www/userhomes/%(user)s/sites/%(vhost)s/%(type)s'
 #apache_default_key = '/etc/apache/server.key'
 #apache_default_cacrt = '/etc/apache/ca.crt'
 
+#######################
+## some bind configs ##
+#######################
+## dnssec secret for dynamic updates, required!
+#bind_secret = ''
+# secrets name, required
+#bind_secret_name = 'renkisrv.'
+# Where is zones.conf file? Default: /etc/bind/zones.conf
+#bind_zones_conf = '/etc/bind/zones.conf'
+# bind dynamic zones file, required
+#bind_zones_dir = '/etc/bind/zones/dynamic/'
+# is this bind master? Default True
+#bind_master = True
+
 # some logging settings
 debug = True
 database_debug = True
