@@ -4,7 +4,7 @@ import time
 import subprocess
 from multiprocessing import Process
 
-from utils import get_uid, drop_privileges, recursive_mkdir
+from utils import get_uid, drop_privileges, recursive_mkdir, copy
 
 # Apache config service for renki
 
@@ -84,6 +84,7 @@ class Vhost(object):
         self.name = None
         self.ssl = False
         self.aliases = []
+        self.redirects = []
         self.user = 'nobody'
         self.group = 'users'
         self.sslkey = None
@@ -124,25 +125,12 @@ class Vhost(object):
         self.user = sqlobject.username
         self.group = 'users'
         self.aliases = sqlobject.aliases
+        self.redirects = sqlobject.redirects
         self.uid = sqlobject.unix_id
 
-    def copy(self, source, dest):
-        if not os.path.isfile(source):
-            self.main.log.error('File %s does not found, cannot copy' % source)
-            return False
-        if os.path.isfile(dest):
-            if os.path.getmtime(dest) > os.path.getmtime(source):
-                # Destination is newer than source, no need for copying
-                return True
-        source = open(source, 'rb')
-        dest = open(dest, 'wb')
-        while line in source.read(2048):
-            dest.write(line)
-        dest.close()
-        source.close()
-        return True
 
     def copy_ssl(self):
+        """Copy ssl-cert from user dir to safe location"""
         ssl_dir = '/var/www/userhome/%s/sites/%s/.ssl/' % (self.username, self.name)
         ssl_dest = '/etc/apache2/ssl/users/'
 
@@ -190,12 +178,12 @@ class Vhost(object):
                     self.main.log.exception(e)
                     return False
             if not os.path.isfile(os.path.join(ssl_dest, 'server.key')):
-                self.copy(user_key, os.path.join(ssl_dest, 'server.key'))
+                copy(user_key, os.path.join(ssl_dest, 'server.key'))
                 os.chmod(os.path.join(ssl_dest, 'server.key'),0400)
                 os.chown(os.path.join(ssl_dest, 'server.key'), 0, 0)
                 self.sslkey = os.path.join(ssl_dest, 'server.key')
             if not os.path.isfile(os.path.join(ssl_dest, 'server.crt')):
-                self.copy(user_crt, os.path.join(ssl_dest, 'server.crt'))
+                copy(user_crt, os.path.join(ssl_dest, 'server.crt'))
                 os.chmod(os.path.join(ssl_dest, 'server.crt'),0444)
                 os.chown(os.path.join(ssl_dest, 'server.crt'), 0, 0)
                 self.sslcrt = os.path.join(ssl_dest, 'server.crt')
@@ -204,13 +192,14 @@ class Vhost(object):
                 valid = subprocess.check_call(['openssl', 'x509', '-in',
                                     '"%s"'% ca_crt, '-text', '-noout'])
                 if valid == 0:
-                     self.copy(ca_crt, os.path.join(ssl_dest, 'ca.crt'))
+                     copy(ca_crt, os.path.join(ssl_dest, 'ca.crt'))
                      os.chmod(os.path.join(ssl_dest, 'ca.crt'), 0444)
                      os.chown(os.path.join(ssl_dest, 'ca.crt'), 0, 0)
             return True
         return False
 
     def default_ssl(self):
+        """Set default ssl to vhost"""
         if not self.main.conf.apache_default_crt or not self.main.conf.apache_default_key:
             return False
         self.sslcrt = self.main.conf.apache_default_crt
@@ -220,9 +209,9 @@ class Vhost(object):
         return True
 
     def test_ssl(self):
+        """Test vhost ssl"""
         if not self.main.conf.apache_ssl or not self.main.conf.apache_ssl_domain:
             return False
-
         if '.%s' % self.main.conf.apache_ssl_domain.lower() in self.name:
             return self.default_ssl()
         if self.name.lower() == self.main.conf.apache_ssl_domain.lower():
@@ -233,6 +222,7 @@ class Vhost(object):
         return False
 
     def write(self):
+        """Write vhost to file"""
         self.test_ssl()
         # create dirs
         b = Process(target=create_dirs, args=(self,))
@@ -244,42 +234,63 @@ class Vhost(object):
             self.main.log.error('Cannot write to file %s! Please check config' %
                 os.path.join(self.main.conf.apache_vhosts_dir,"%s.conf" % self.name))
         f.write(self.as_text())
-        f.write(self.as_text(True))
 
     def delete(self):
+        """Delete vhost"""
         try:
             if os.path.exists(self.conf()):
                 os.remove(self.conf())
         except IOError as e:
             self.main.log.error('Cannot remove file %s, %s' % (self.conf(), e))
 
-    def as_text(self, ssl=False):
-        if ssl and not self.ssl:
-            return ''
-        if ssl:
-            port = 443
-        else:
-            port = self.port
+    def as_text(self):
+        """Output vhost as Apache2 config"""
         a = []
         for alias in self.aliases:
             if alias:
                 a.append(alias)
         self.aliases = a
-        retval = "<VirtualHost %s:%s>\n" % (self.address, port)
-        retval += "  DocumentRoot %s\n" % self.documentroot(ssl)
-        retval += "  ServerName %s\n" % self.name
-        if len(self.aliases) > 0:
-            retval += " ServerAlias %s\n" % ' '.join(self.aliases)
-        retval += "  ErrorLog %s\n" % os.path.join(self.log_dir(), 'error.log')
-        retval += "  CustomLog %s combined\n" % os.path.join(self.log_dir(), 'access.log')
-        retval += "  SuexecUserGroup %s %s\n" % (self.user, self.group)
-        if ssl:
-            retval += "SSLEngine On\n"
-            if self.cacrt:
-                retval += "SSLCACertificateFile %s\n" % self.cacrt
-            retval += "SSLCertificateFile %s\n" % self.sslcrt
-            retval += "SSLCertificateKeyFile %s\n" % self.sslkey
-        retval += "</VirtualHost>\n"
+        a = []
+        for redirect in self.redirects:
+            if redirect:
+                a.append(redirect)
+        self.redirects = a
+        ssl = False
+        retval = ''
+        while True:
+            if ssl and not self.ssl:
+                break
+            port = self.port
+            if ssl:
+                port = 443
+            retval += "<VirtualHost %s:%s>\n" % (self.address, port)
+            retval += "  DocumentRoot %s\n" % self.documentroot(ssl)
+            retval += "  ServerName %s\n" % self.name
+            if len(self.aliases) > 0:
+                retval += " ServerAlias %s\n" % ' '.join(self.aliases)
+            retval += "  ErrorLog %s\n" % os.path.join(self.log_dir(), 'error.log')
+            retval += "  CustomLog %s combined\n" % os.path.join(self.log_dir(), 'access.log')
+            retval += "  SuexecUserGroup %s %s\n" % (self.user, self.group)
+            if ssl:
+                retval += "  SSLEngine On\n"
+                if self.cacrt:
+                    retval += "  SSLCACertificateFile %s\n" % self.cacrt
+                retval += "  SSLCertificateFile %s\n" % self.sslcrt
+                retval += "  SSLCertificateKeyFile %s\n" % self.sslkey
+            retval += "</VirtualHost>\n"
+            # redirects also
+            for redirect in self.redirects:
+                retval += "<VirtualHost %s:%s>\n" % (self.address, port)
+                retval += "  ServerName %s\n" % redirect
+                if not ssl:
+                    retval +=  "  Redirect permanent / http://%s/\n" % (self.name)
+                else:
+                    retval +=  "  Redirect permanent / https://%s/\n" % (self.name)
+                retval += "</VirtualHost>\n"
+            if ssl:
+                #loop most two round
+                break
+            ssl = True
         return retval
 
 class RenkiServer(renkiserver.RenkiServer):
@@ -315,7 +326,7 @@ class RenkiServer(renkiserver.RenkiServer):
             self.log.debug('Creating some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)
             self.log.debug('%s' % vars(sqlobject))
-            vhost = FVhost(self, sqlobject)
+            vhost = Vhost(self, sqlobject)
             self.log.debug(vhost.as_text())
             vhost.write()
             self.reload_apache()
