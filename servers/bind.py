@@ -1,5 +1,6 @@
 import renkiserver
 from services import S_services, T_domains
+from libs.conf import Option
 
 import os
 import subprocess
@@ -15,8 +16,6 @@ from dns.tsig import PeerBadKey
 
 from sqlalchemy.orm.exc import NoResultFound
 
-import logging
-
 # Bind config service for renki
 # TODO:
 # dns update
@@ -26,11 +25,19 @@ __version__ = '0.0.2'
 
 class RenkiServer(renkiserver.RenkiServer):
     def __init__(self):
-        renkiserver.RenkiServer.__init__(self)
+        renkiserver.RenkiServer.__init__(self, name='dns')
         self.name = 'dns'
+        self.config_options = [
+            Option('bind_secret', mandatory=True, module='bind', type='str'),
+            Option('bind_secret_name', mandatory=True, module='bind', type='str'),
+            Option('bind_zones_conf', default='/etc/bind/zones.conf', module='bind', type='str'),
+            Option('bind_zones_dir', mandatory=True, module='bind', type='str'),
+            Option('bind_master', default=True, module='bind', type='bool'),
+            Option('bind_secret_algorithm', default='hmac-md5',
+                values=['hmac-md5', 'hmac-sha1', 'hmac-sha224', 'hmac-sha256',
+                'hmac-sha384', 'hmac-sha512'], type='str', module='bind', mandatory=True)]
         self.tables = ['t_domains', 't_dns_entries']
         self.keyring = None
-        self.log = logging.getLogger(self.name)
 
     def get_domain(self, t_domains_id):
         try:

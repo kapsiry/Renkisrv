@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-__version__ = '0.0.3'
+__version__ = 'v0.1'
 
 from services import *
 import sys
+from os import path
 import select
-from renkicfg import *
+from libs.conf import Option, Config
 import logging
-#from sqlalchemy import select as alchemyselect
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -23,16 +23,37 @@ h.setFormatter(formatter)
 x.addHandler(h)
 x.setLevel(logging.DEBUG)
 
+
+config_variables = [
+    Option('servers', default=None, type='list'),
+    Option('services_username', mandatory=True, type='str'),
+    Option('services_password', mandatory=True, type='str'),
+    Option('services_port', default=None, type='int'),
+    Option('services_server', mandatory=True, type='str'),
+    Option('services_database', mandatory=True, type='str'),
+    Option('debug', default=False, type='bool'),
+    Option('database_debug', default=False, type='bool'),
+    Option('log_file', default=None),
+    Option('hostnames', mandatory=True)
+]
+
 class RenkiSrv(object):
     def __init__(self, conf):
         self.log = logging.getLogger('renkisrv')
-        self.conf = conf
+        self.conf = Config(config_variables, config_file)
+        h = logging.FileHandler(filename="renkiserv.log")
+        if self.conf.debug:
+            self.log.setLevel(logging.DEBUG)
+            h.setLevel(logging.DEBUG)
+        else:
+            self.conf.setLevel(logging.WARNING)
+            h.setLevel(logging.WARNING)
         self.log.debug("Initializing RenkiSrv")
         self.workers = []
         self.workqueue = []
         self.populate_workers()
         try:
-            self.srv = Services(conf)
+            self.srv = Services(self.conf)
         except RuntimeError as e:
             log.exception(e)
             log.error("Cannot login to server, please check config")
@@ -100,11 +121,17 @@ class RenkiSrv(object):
                 module = __import__('servers.%s' % server)
                 worker = vars(module)[server].RenkiServer()
                 worker.conf = self.conf
+                for option in worker.config_options:
+                    option.module = server
+                    self.conf.add_setting(option)
                 self.workers.append(worker)
                 self.conf.add_tables(worker.tables)
-            except ImportError:
-                self.log.error('Cannot import nonexistent server %s' % server)
-                self.log.error('Check config')
+            except ImportError as e:
+                if e.args[0] == 'No module named %s' % server:
+                    self.log.error('Cannot import nonexistent server %s' % server)
+                    self.log.error('Check config')
+                else:
+                    self.log.exception(e)
                 sys.exit(1)
 
     def feed_workers(self):
@@ -270,24 +297,15 @@ class RenkiSrv(object):
 if __name__ == '__main__':
     log = logging.getLogger("renkisrv")
     log.info("Welcome to Renkisrv version %s" % __version__)
+    config_file = path.join(path.dirname(path.abspath(__file__)),'config.py')
     try:
-        config = Config()
-    except ConfigError as error:
-        log.error('Config error: %s' % error)
+        renkisrv = RenkiSrv(config_file)
+    except Exception as error:
+        cla, exc, trbk = sys.exc_info()
+        log.error('%s: %s' % (cla.__name__, error))
+        log.exception(error)
+        log.critical('Renkisrv stopped')
         sys.exit(1)
-    if config.debug:
-        x.setLevel(logging.DEBUG)
-    else:
-        x.setLevel(logging.WARNING)
-    h = logging.FileHandler(filename="renkiserv.log")
-    try:
-        if config.debug:
-            h.setLevel(logging.DEBUG)
-        else:
-            h.setLevel(logging.WARNING)
-    except:
-        h.setLevel(logging.WARNING)
-    renkisrv = RenkiSrv(config)
     try:
         renkisrv.mainloop()
     except KeyboardInterrupt:

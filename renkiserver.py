@@ -3,15 +3,18 @@ import threading
 from time import sleep
 
 class RenkiServer(threading.Thread):
-    def __init__(self):
+    def __init__(self, name=None):
         threading.Thread.__init__(self)
         self.tables = []
         self.queue = []
-        self.name = 'dummy'
+        self.name = 'Renkiserver'
+        if name:
+            self.name = name
         self.conf = None
         self.srv = None
         self.stop = False
-        self.log = logging.getLogger('RenkiServer')
+        self.config_options = []
+        self.log = logging.getLogger(self.name)
 
     def kill(self):
         self.stop = True

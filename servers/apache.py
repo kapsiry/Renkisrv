@@ -4,7 +4,8 @@ import time
 import subprocess
 from multiprocessing import Process
 
-from utils import get_uid, drop_privileges, recursive_mkdir, copy
+from libs.conf import Option
+from libs.utils import get_uid, drop_privileges, recursive_mkdir, copy
 
 # Apache config service for renki
 
@@ -302,11 +303,17 @@ class RenkiServer(renkiserver.RenkiServer):
     """
 
     def __init__(self):
-        renkiserver.RenkiServer.__init__(self)
-        self.name = 'apache'
+        renkiserver.RenkiServer.__init__(self, name='apache')
         self.tables = ['s_vhosts']
-
-
+        self.conf_options = [
+            Option('apache_ssl', default=False, module='apache'),
+            Option('apache_ssl_domain', mandatory=True, variable='apache_ssl', type='str', module='apache'),
+            Option('apache_log_dir', default='/var/log/apache2/%(vhost)s', type='str', module='apache'),
+            Option('apache_default_ssl_key', mandatory=True, variable='apache_ssl', type='str', module='apache'),
+            Option('apache_default_ssl_crt', mandatory=True, variable='apache_ssl', type='str', module='apache'),
+            Option('apache_default_ssl_cacrt', default=None, type='str', module='apache'),
+            Option('apache_vhosts_dir', default='/etc/apache2/', type='str', module='apache'),
+            Option('apache_documentroot', default='/var/www/', type='str', module='apache')]
 
     def reload_apache(self):
         """We need maybe better way to handle situations when multiple changes has made once"""

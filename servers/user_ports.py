@@ -11,8 +11,7 @@ __version__ = '0.0.1'
 
 class RenkiServer(renkiserver.RenkiServer):
     def __init__(self):
-        renkiserver.RenkiServer.__init__(self)
-        self.name = 'user_ports'
+        renkiserver.RenkiServer.__init__(self, name='user_ports')
         self.tables = ['s_user_ports']
         self.config_file = '/etc/ports.conf'
 
