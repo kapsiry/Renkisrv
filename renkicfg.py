@@ -86,7 +86,6 @@ class Config():
         if not name:
             return
         try:
-            self.log.debug('setting value %s = %s' % (name, globals()[name]))
             setattr(self,name,globals()[name])
             return
         except KeyError:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 from services import *
 import sys
@@ -99,6 +99,7 @@ class RenkiSrv(object):
     def feed_workers(self):
         """Get changes and add them to workers"""
         try:
+            #sleep(2)
             changes = self.get_changes()
         except Exception as e:
             self.log.error('BUG: Cannot get changes')
@@ -119,6 +120,8 @@ class RenkiSrv(object):
         self.log.info('Waiting for notifications on channel "sqlobjectupdate"')
         while True:
             try:
+                # close open transactions if any()
+                self.srv.session.commit()
                 if select.select([self.conn],[],[],30) == ([],[],[]):
                     self.log.debug('Timeout')
                     try:
@@ -130,7 +133,7 @@ class RenkiSrv(object):
                     print("%s" % self.conn.notifies)
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
-                        self.log.info('Got notify: pid: %s, channel: %s, payload: %s' % (notify.pid, notify.channel, notify.payload))
+                        self.log.info('Got notify: pid: %s' % notify.pid)
                         self.feed_workers()
             except OperationalError as e:
                 log.exception(e)
@@ -225,12 +228,13 @@ class RenkiSrv(object):
                             Change_log.table == change.table).filter(
                             Change_log.event_type == 'DELETE').filter(
                             Change_log.t_change_log_id == change.t_change_log_id).all()
-                    self.log.debug("RESULTS: %s" % results)
                     for result in results:
                         self.workqueue.append(change)
                         for worker in self.workers:
                             worker.add(result)
                     self.latest_transaction = change.transaction_id
+                    # close open transactions if any
+                    self.srv.session.commit()
                 except IntegrityError or OperationalError or ProgrammingError as e:
                     self.log.error('Error while getting changed data')
                     self.log.exception(e)
@@ -248,7 +252,7 @@ class RenkiSrv(object):
 
 if __name__ == '__main__':
     log = logging.getLogger("renkisrv")
-    log.info("Welcome to %s version %s" % (__name__, __version__))
+    log.info("Welcome to Renkisrv version %s" % __version__)
     try:
         config = Config()
     except ConfigError as error:

@@ -15,6 +15,8 @@ from dns.tsig import PeerBadKey
 
 from sqlalchemy.orm.exc import NoResultFound
 
+import logging
+
 # Bind config service for renki
 # TODO:
 # dns update
@@ -28,6 +30,7 @@ class RenkiServer(renkiserver.RenkiServer):
         self.name = 'dns'
         self.tables = ['t_domains', 't_dns_entries']
         self.keyring = None
+        self.log = logging.getLogger(self.name)
 
     def get_domain(self, t_domains_id):
         try:
@@ -51,21 +54,19 @@ class RenkiServer(renkiserver.RenkiServer):
         if not domain:
             self.log.error('Cannot get domain for t_domains_id %s' % sqlobject.t_domains_id)
             return
-        if len(self.parse_inetlist(domain.masters)) > 0:
+        if self.parse_inetlist(domain.masters):
             # this server is not master
             return True
         if not self.conf.bind_master:
             # this server is not master
             return True
         value = str(sqlobject.value).split('/')[0]
-        self.log.debug("%s %d IN %s %s" % (str(sqlobject.key), int(sqlobject.ttl),
-                                    str(sqlobject.type), value))
         update = dns.update.Update(str(domain.name), keyring=self.keyring,
                     keyalgorithm=str(self.conf.bind_secret_algorithm).lower())
         if delete:
-            update.delete(str(sqlobject.key), str(sqlobject.type))
+            update.delete(str(sqlobject.key), str(sqlobject.type), value)
         else:
-            update.replace(str(sqlobject.key), int(sqlobject.ttl),
+            update.add(str(sqlobject.key), int(sqlobject.ttl),
                                                 str(sqlobject.type), value)
         try:
             response = dns.query.tcp(update, '127.0.0.1')
@@ -74,7 +75,16 @@ class RenkiServer(renkiserver.RenkiServer):
             return False
         if response.rcode() != 0:
             self.log.error('DNS update failed, got error')
+            self.log.error(response)
             return False
+        if delete:
+            self.log.info('Successfully deleted dns-record %s %d IN %s %s' % (
+                                    str(sqlobject.key), int(sqlobject.ttl),
+                                    str(sqlobject.type), value))
+        else:
+            self.log.info('Successfully added dns-record %s %d IN %s %s' % (
+                                    str(sqlobject.key), int(sqlobject.ttl),
+                                    str(sqlobject.type), value))
         return True
 
     def parse_inetlist(self, inetlist):
@@ -255,7 +265,8 @@ class RenkiServer(renkiserver.RenkiServer):
                 self.log.debug('OLD: %s' % vars(old_sqlobject))
                 self.log.debug('NEW: %s' % vars(new_sqlobject))
         elif table == 't_dns_entries':
-            self.update_dns_value(sqlobject)
+            self.update_dns_value(old_sqlobject, delete=True)
+            self.update_dns_value(new_sqlobject)
         return True
 
     def delete(self, sqlobject, table):
