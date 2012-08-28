@@ -18,6 +18,13 @@ class mandatory():
         self.module = module
         self.variable = variable
 
+#TODO: rewrite options to objects
+# with: 
+# mandatory t/f
+# module string
+# values: None
+# default string/bool
+
 default_variables = [
     ('servers', None),
     ('services_username', mandatory()),
@@ -41,7 +48,8 @@ default_variables = [
     ('bind_zones_conf', '/etc/bind/zones.conf'),
     ('bind_zones_dir', mandatory(module='bind')),
     ('bind_master', True),
-    ('hostnames' , mandatory())
+    ('bind_secret_algorithm', 'hmac-md5'),
+    ('hostnames', mandatory())
     ]
 
 class ConfigError(Exception):

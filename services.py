@@ -95,6 +95,17 @@ class Services():
                 autoload=True)
                 mapper(S_user_ports_history, s_user_ports_history)
                 self.tables['s_user_ports_history'] = S_user_ports_history
+            if 't_dns_entries':
+                t_dns_entries = Table('t_dns_entries', metadata,
+                    Column("t_dns_entries_id", Integer, primary_key=True),
+                    autoload=True)
+                mapper(T_dns_entries, t_dns_entries)
+                self.tables['t_dns_entries'] = T_dns_entries
+                t_dns_entries_history = Table('t_dns_entries_history', metadata,
+                    Column("t_dns_entries_history_id", Integer, primary_key=True),
+                    autoload=True)
+                mapper(T_dns_entries_history, t_dns_entries_history)
+                self.tables['t_dns_entries_history'] = T_dns_entries_history
             s_services = Table('s_services', metadata,
                     Column("t_services_id", Integer, primary_key=True),
                     autoload=True)
@@ -129,4 +140,10 @@ class S_user_ports(object):
     pass
 
 class S_services(object):
+    pass
+
+class T_dns_entries_history(object):
+    pass
+
+class T_dns_entries(object):
     pass

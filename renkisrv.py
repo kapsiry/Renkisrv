@@ -98,7 +98,12 @@ class RenkiSrv(object):
 
     def feed_workers(self):
         """Get changes and add them to workers"""
-        changes = self.get_changes()
+        try:
+            changes = self.get_changes()
+        except Exception as e:
+            self.log.error('BUG: Cannot get changes')
+            self.log.exception(e)
+            return
         if changes:
             self.workqueue.append(change)
             for worker in self.workers:
@@ -126,7 +131,6 @@ class RenkiSrv(object):
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
                         self.log.info('Got notify: pid: %s, channel: %s, payload: %s' % (notify.pid, notify.channel, notify.payload))
-                        #sleep(1)
                         self.feed_workers()
             except OperationalError as e:
                 log.exception(e)
@@ -185,12 +189,12 @@ class RenkiSrv(object):
                     mapper=self.srv.tables[change.table]).fetchall()"""
                 try:
                     table = self.srv.tables[change.table]
-                    print('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)
+                    #self.log.debug('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)
                     history_table = self.srv.tables['%s_history' % change.table]
                     history_table_pk = vars(history_table)[class_mapper(self.srv.tables[change.table]).primary_key[0].name]
-                    print('HISTORY: %s' % history_table_pk)
-                except KeyError:
+                except KeyError as e:
                     self.log.error('History table %s_history not found for table %s!' % (change.table,change.table))
+                    self.log.exception(e)
                     continue
                 try:
                     if change.event_type == 'INSERT':

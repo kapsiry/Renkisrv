@@ -42,6 +42,10 @@ apache_documentroot = '/var/www/userhomes/%(user)s/sites/%(vhost)s/%(type)s'
 #bind_secret = ''
 # secrets name, required
 #bind_secret_name = 'renkisrv.'
+# bind secret algorithm, default hmac-md5
+# Valid values: hmac-md5, hmac-sha1, hmac-sha224, hmac-sha256,
+# hmac-sha384 and hmac-sha512
+#bind_secret_algorithm = 'hmac-sha512'
 # Where is zones.conf file? Default: /etc/bind/zones.conf
 #bind_zones_conf = '/etc/bind/zones.conf'
 # bind dynamic zones file, required
