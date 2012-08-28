@@ -3,7 +3,7 @@
 
 __version__ = 'v0.1'
 
-from services import *
+from libs.services import *
 import sys
 from os import path
 import select
@@ -146,7 +146,7 @@ class RenkiSrv(object):
         if changes:
             self.workqueue.append(change)
             for worker in self.workers:
-                worker.add(change)
+                worker._add(change)
 
     def mainloop(self):
         """Run this loop until ctrl + c"""
@@ -198,7 +198,7 @@ class RenkiSrv(object):
                 worker.start()
                 self.workers[num] = worker
                 for work in self.workqueue:
-                    self.workers[num].add(work)
+                    self.workers[num]._add(work)
                 self.log.info('Service %s restarted and pending %s works send to it' % (self.workers[num].name, len(self.workqueue)))
 
     def get_changes(self):
@@ -275,7 +275,7 @@ class RenkiSrv(object):
                     for result in results:
                         self.workqueue.append(change)
                         for worker in self.workers:
-                            worker.add(result)
+                            worker._add(result)
                     self.latest_transaction = change.transaction_id
                     # close open transactions if any
                     self.srv.session.commit()
@@ -290,7 +290,7 @@ class RenkiSrv(object):
         for worker in self.workers:
             try:
                 self.log.info('Stopping service %s' % worker.name)
-                worker.kill()
+                worker._kill()
             except Exception as e:
                 self.log.exception(e)
 

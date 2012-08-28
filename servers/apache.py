@@ -1,4 +1,4 @@
-import renkiserver
+from libs import renkiserver
 import os, stat
 import time
 import subprocess

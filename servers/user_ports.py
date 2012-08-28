@@ -1,4 +1,4 @@
-import renkiserver
+from libs import renkiserver
 import fileinput
 import subprocess
 from tempfile import mkstemp

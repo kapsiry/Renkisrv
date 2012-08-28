@@ -1,0 +1,32 @@
+=== Servers ===
+
+Servers are important part of Renkisrv. Servers makes actual changes to configs
+based on database changes made by users. 
+
+== Implementation ==
+
+Server is a Python class named RenkiServer that is libs.renkiserver.RenkiServer.
+Class name must be RenkiServer or Renkisrv do not know how to import it.
+
+== Base variables ==
+
+Server class have some pre-defined variables
+- self.conf: libs.conf.Config() instance containing Renkisrv config.
+- self.srv: services.Services() instance, for database interaction.
+
+Server class can set these variables in __init__(self)
+
+- self.config_options: list of libs.conf.Options containing config variables.
+- self.name (or name RenkiServer as RenkiServer init argument) Server name,
+used on logs.
+- self.tables: List of tables server listens.
+
+Notice! self.conf and self.srv are set after __init__ call.
+
+== Functions ==
+
+insert(new) This function is called on insert to table.
+update(new, old) This function is called when table is updated.
+delete(old) This function is called on delete.
+
+Old and new are sqlalchemy database row objects.

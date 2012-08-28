@@ -1,5 +1,5 @@
-import renkiserver
-from services import S_services, T_domains
+from libs import renkiserver
+from libs.services import S_services, T_domains
 from libs.conf import Option
 
 import os

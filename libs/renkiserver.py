@@ -6,21 +6,22 @@ class RenkiServer(threading.Thread):
     def __init__(self, name=None):
         threading.Thread.__init__(self)
         self.tables = []
-        self.queue = []
+        self._queue = []
         self.name = 'Renkiserver'
         if name:
             self.name = name
         self.conf = None
         self.srv = None
-        self.stop = False
+        self._stop = False
         self.config_options = []
         self.log = logging.getLogger(self.name)
 
-    def kill(self):
-        self.stop = True
+    def _kill(self):
+        """Called when Renkisrv exits"""
+        self._stop = True
 
-    def add(self, sqlobject):
-        self.queue.insert(0,sqlobject)
+    def _add(self, sqlobject):
+        self._queue.insert(0,sqlobject)
 
     def insert(self, sqlobject, table):
         """Do something on insert to table <table>
@@ -47,9 +48,9 @@ class RenkiServer(threading.Thread):
 
     def run(self):
         self.log.info('%s service started' % self.name)
-        while not self.stop:
+        while not self._stop:
             try:
-                sqlobject = self.queue.pop()
+                sqlobject = self._queue.pop()
             except IndexError:
                 sleep(1)
                 continue
