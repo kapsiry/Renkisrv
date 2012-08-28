@@ -9,6 +9,7 @@ class RenkiServer(threading.Thread):
         self.queue = []
         self.name = 'dummy'
         self.conf = None
+        self.srv = None
         self.stop = False
         self.log = logging.getLogger('RenkiServer')
 
@@ -54,25 +55,24 @@ class RenkiServer(threading.Thread):
                     for label in sqlobject._labels:
                         if label is not 'Change_log':
                             if not label.endswith('_history'):
-                                print("NEWOBJECT : %s" % label)
                                 mynewobject = vars(sqlobject)[label]
                             elif label.endswith('_history'):
                                 myoldobject = vars(sqlobject)[label]
                     if sqlobject.Change_log.event_type == 'INSERT':
                         if not self.insert(mynewobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s on insert function, retrying' % vars(myobject))
+                            self.log.error('Try 1: Error processing object %s on insert function, retrying' % vars(mynewobject))
                             if not self.insert(mynewobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on insert function, giving up' % vars(myobject))
+                                self.log.error('Try 2: Error processing object %s on insert function, giving up' % vars(mynewobject))
                     elif sqlobject.Change_log.event_type == 'UPDATE':
                         if not self.update(myoldobject, mynewobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s on update function, retrying' % vars(myobject))
+                            self.log.error('Try 1: Error processing object %s on update function, retrying' % vars(mynewobject))
                             if not self.update(myoldobject, mynewobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on update function, giving up' % vars(myobject))
+                                self.log.error('Try 2: Error processing object %s on update function, giving up' % vars(mynewobject))
                     elif sqlobject.Change_log.event_type == 'DELETE':
                         if not self.delete(myoldobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s delete function, retrying' % vars(myobject))
+                            self.log.error('Try 1: Error processing object %s delete function, retrying' % vars(myoldobject))
                             if not self.delete(myoldobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on delete function, giving up' % vars(myobject))
+                                self.log.error('Try 2: Error processing object %s on delete function, giving up' % vars(myoldobject))
             except Exception as e:
                 self.log.exception(e)
                 self.log.error('Error processing object %s' % vars(sqlobject))

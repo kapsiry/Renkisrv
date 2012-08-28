@@ -3,6 +3,41 @@ Renkisrv is server-side client for Services database.
 Renkisrv is used to create, modify and delete configs based on database 
 changes.
 
+Installation:
+
+virtualenv env
+. env/bin/activate
+pip install -r requirements.txt
+cp config.py.sample config.py 
+$EDITOR config.py
+./renkisrv
+
+# Getting started with user_ports
+Currently user_ports is dummy script which adds and removes lines
+from /etc/ports.conf file.
+
+# Getting started with apache
+Configure apache settings to config.py file.
+Create required dirs if not already exists.
+Add "include your_apache_vhosts_dir/*.conf" to apache2.conf
+
+# Getting started with bind
+# if bind is master:
+Add "acl "ns-slaves"" to named.conf.local
+Eg. "acl "ns-slaves" { myslave; myotherslave; };"
+# else:
+Add "acl "ns-master"" to named.conf.local
+Eg. "acl "ns-master" { mymaster; };"
+
+Create dnssec key for dynamic updates
+dnssec-keygen -a HMAC-SHA512 -b 512 -n USER renkisrv
+Copy secret from Krenkisrv.+whatever.key
+Add line "key "renkisrv." {algorithm hmac-sha512; secret "paste secret here"};"
+
+Copy secret from Krenkisrv.+whatever.private and paste it
+to config.py file.
+Add key type (hmac-sha512) to config.py file
+
 Licensed under MIT-license.
 
 Copyright (c) 2012 Kapsi Internet-käyttäjät ry

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-__version__ = '0.0.1'
+__version__ = '0.0.3'
 
 from services import *
 import sys
@@ -37,12 +37,17 @@ class RenkiSrv(object):
             log.exception(e)
             log.error("Cannot login to server, please check config")
             sys.exit(1)
+        for worker in self.workers:
+            worker.srv = self.srv
         self.conn = None
         self.cursor = None
         self.connect()
         self.log.debug("Initialized RenkiSrv")
         latest = self.srv.session.query(Change_log).order_by(Change_log.created.desc()).first()
-        self.latest_transaction = latest.transaction_id
+        try:
+            self.latest_transaction = latest.transaction_id
+        except:
+            self.latest_transaction = 0
         # do not leave open transaction
         self.srv.session.commit()
 
@@ -88,12 +93,18 @@ class RenkiSrv(object):
                 self.conf.add_tables(worker.tables)
             except ImportError:
                 self.log.error('Cannot import nonexistent server %s' % server)
-                self.log.error('Check our config' % server)
+                self.log.error('Check config')
                 sys.exit(1)
 
     def feed_workers(self):
         """Get changes and add them to workers"""
-        changes = self.get_changes()
+        try:
+            #sleep(2)
+            changes = self.get_changes()
+        except Exception as e:
+            self.log.error('BUG: Cannot get changes')
+            self.log.exception(e)
+            return
         if changes:
             self.workqueue.append(change)
             for worker in self.workers:
@@ -109,6 +120,8 @@ class RenkiSrv(object):
         self.log.info('Waiting for notifications on channel "sqlobjectupdate"')
         while True:
             try:
+                # close open transactions if any()
+                self.srv.session.commit()
                 if select.select([self.conn],[],[],30) == ([],[],[]):
                     self.log.debug('Timeout')
                     try:
@@ -120,7 +133,7 @@ class RenkiSrv(object):
                     print("%s" % self.conn.notifies)
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
-                        self.log.info('Got notify: pid: %s, channel: %s, payload: %s' % (notify.pid, notify.channel, notify.payload))
+                        self.log.info('Got notify: pid: %s' % notify.pid)
                         self.feed_workers()
             except OperationalError as e:
                 log.exception(e)
@@ -173,18 +186,18 @@ class RenkiSrv(object):
             if change.table in self.srv.tables:
                 self.log.debug('Action %s in table %s' % (change.event_type, change.table))
                 results = []
-                print("Transaction_id: %s" % str(change.transaction_id))
+                self.log.debug("Transaction_id: %s" % str(change.transaction_id))
                 """results = self.srv.session.execute("SELECT *,xmin,xmax FROM %s WHERE xmin = :transaction" % change.table,
                     {'transaction' : str(change.transaction_id)},
                     mapper=self.srv.tables[change.table]).fetchall()"""
                 try:
                     table = self.srv.tables[change.table]
-                    print('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)
+                    #self.log.debug('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)
                     history_table = self.srv.tables['%s_history' % change.table]
                     history_table_pk = vars(history_table)[class_mapper(self.srv.tables[change.table]).primary_key[0].name]
-                    print('HISTORY: %s' % history_table_pk)
-                except KeyError:
+                except KeyError as e:
                     self.log.error('History table %s_history not found for table %s!' % (change.table,change.table))
+                    self.log.exception(e)
                     continue
                 try:
                     if change.event_type == 'INSERT':
@@ -215,12 +228,13 @@ class RenkiSrv(object):
                             Change_log.table == change.table).filter(
                             Change_log.event_type == 'DELETE').filter(
                             Change_log.t_change_log_id == change.t_change_log_id).all()
-                    print("RESULTS: %s" % results)
                     for result in results:
                         self.workqueue.append(change)
                         for worker in self.workers:
                             worker.add(result)
                     self.latest_transaction = change.transaction_id
+                    # close open transactions if any
+                    self.srv.session.commit()
                 except IntegrityError or OperationalError or ProgrammingError as e:
                     self.log.error('Error while getting changed data')
                     self.log.exception(e)
@@ -238,7 +252,7 @@ class RenkiSrv(object):
 
 if __name__ == '__main__':
     log = logging.getLogger("renkisrv")
-    log.info("Welcome to %s version %s" % (__name__, __version__))
+    log.info("Welcome to Renkisrv version %s" % __version__)
     try:
         config = Config()
     except ConfigError as error:

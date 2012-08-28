@@ -36,10 +36,29 @@ def recursive_mkdir(directory):
     for p in directory.split('/'):
         if len(p) == 0:
             continue
+        if len(path) == 0 and directory[0] == '/':
+            p = '/%s' % p
         path.append(p)
         subpath = os.path.join(*path)
-        if os.path.exist(subpath) and not os.path.isdir(subpath):
+        if os.path.exists(subpath) and not os.path.isdir(subpath):
             raise IOError('Path %s is exist but not directory' % subpath)
-        if not os.path.isdir(subpath):
+        if not os.path.exists(subpath) and not os.path.isdir(subpath):
             os.mkdir(subpath)
+    return True
+
+def copy(source, dest):
+    """Copy file"""
+    if not os.path.isfile(source):
+        raise RuntimeError('File %s does not found, cannot copy' % source)
+        return False
+    if os.path.isfile(dest):
+        if os.path.getmtime(dest) > os.path.getmtime(source):
+            # Destination is newer than source, no need for copying
+            return True
+    source = open(source, 'rb')
+    dest = open(dest, 'wb')
+    while line in source.read(2048):
+        dest.write(line)
+    dest.close()
+    source.close()
     return True

@@ -1,0 +1,5 @@
+SQLAlchemy==0.7.8
+psycopg2==2.4.5
+dnspython==1.10.0
+easyzone==1.2.2
+iscpy==1.0.3
