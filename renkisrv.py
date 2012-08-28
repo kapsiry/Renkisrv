@@ -64,23 +64,34 @@ class RenkiSrv(object):
         if not self.srv:
             self.srv = Services(self.conf)
         first = True
+        try:
+            self.conn.close()
+        except:
+            pass
+        self.conn = None
         while 1:
             try:
+                self.srv.session.rollback()
                 self.connect()
                 self.cursor.execute('SELECT 1')
                 self.cursor.execute('LISTEN sqlobjectupdate')
                 self.log.info('Connected to database')
                 break
             except OperationalError as e:
-                log.exception(e)
+                #log.exception(e)
+                pass
             except DatabaseError as e:
+                log.exception(e)
+            except Exception as e:
                 log.exception(e)
             if first:
                 # don't print text once in five seconds
                 self.log.error('Database not available')
                 first = False
-            self.conn = None
             sleep(5)
+        #TODO needs to check works missed on break
+        self.feed_workers()
+        self.log.error('Reconnected to database')
 
     def populate_workers(self):
         """Populate workers list with service workers"""
@@ -130,13 +141,19 @@ class RenkiSrv(object):
                         self.reconnect()
                 else:
                     self.conn.poll()
-                    print("%s" % self.conn.notifies)
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
                         self.log.info('Got notify: pid: %s' % notify.pid)
                         self.feed_workers()
             except OperationalError as e:
-                log.exception(e)
+                # postgresql disconnected.
+                self.log.error('Postgresql connection lost, trying to reconnect')
+                self.log.exception(e)
+                self.reconnect()
+            except ValueError as e:
+                self.srv.session.rollback()
+                self.log.exception(e)
+                sleep(5)
             restart = []
 
             for worker in range(0,len(self.workers)):

@@ -51,7 +51,6 @@ class RenkiServer(renkiserver.RenkiServer):
 
     def insert(self, sqlobject, table):
         """Generate firewall rule"""
-        print('TABLE: %s' % table)
         if table != 's_user_ports':
             return True
         if sqlobject.server not in self.conf.hostnames:

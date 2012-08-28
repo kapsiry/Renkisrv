@@ -24,13 +24,6 @@ class DoesNotExist(Exception):
     def __str__(self):
         return "%s" % self.value
 
-
-def on_connect_listener(target, context):
-    print("Reconnecting to database...")
-
-def on_first_connect_listener(target, context):
-    print("Connecting to database...")
-
 class Services():
     def __init__(self,conf,verbose=False):
         self.db = None

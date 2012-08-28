@@ -321,7 +321,6 @@ class RenkiServer(renkiserver.RenkiServer):
 
     def insert(self, sqlobject, table):
         """Process apache configs to server"""
-        print('TABLE: %s' % table)
         if table == 's_vhosts':
             self.log.debug('Creating some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)

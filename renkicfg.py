@@ -6,8 +6,6 @@
 
 from config import *
 import logging
-from pprint import pprint
-
 
 # Format 'variable name' : 'Default value'
 # If default value is mandatory(), setting is mandatory and if setting not found on config
@@ -64,7 +62,7 @@ class ConfigError(Exception):
         return "Config setting %s is mandatory!" % self.value
 
     def __unicode__(self):
-        print unicode(self.__str__())
+        return unicode(self.__str__())
 
 class Config():
     def __init__(self):
