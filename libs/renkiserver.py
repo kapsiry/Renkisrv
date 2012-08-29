@@ -1,12 +1,19 @@
 import logging
 import threading
 from time import sleep
+from datetime import datetime, timedelta
+
+class Retry(object):
+    def __init__(self, object):
+        self.object = object
+        self.timestamp = datetime.now()
 
 class RenkiServer(threading.Thread):
     def __init__(self, name=None):
         threading.Thread.__init__(self)
         self.tables = []
         self._queue = []
+        self._retry = []
         self.name = 'Renkiserver'
         if name:
             self.name = name
@@ -49,11 +56,22 @@ class RenkiServer(threading.Thread):
     def run(self):
         self.log.info('%s service started' % self.name)
         while not self._stop:
+            retry = True
             try:
                 sqlobject = self._queue.pop()
             except IndexError:
-                sleep(1)
-                continue
+                try:
+                    # Trust objects are in time order
+                    retryobject = self._retry.pop()
+                    if retryobject.timestamp < (datetime.now() - timedelta(seconds=10)):
+                        sqlobject = retryobject.object
+                        retry = False
+                    else:
+                       self._retry.insert(0,retryobject)
+                       continue
+                except IndexError:
+                    sleep(1)
+                    continue
             try:
                 if sqlobject.Change_log.table in self.tables:
                     for label in sqlobject._labels:
@@ -64,19 +82,25 @@ class RenkiServer(threading.Thread):
                                 myoldobject = vars(sqlobject)[label]
                     if sqlobject.Change_log.event_type == 'INSERT':
                         if not self.insert(mynewobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s on insert function, retrying' % vars(mynewobject))
-                            if not self.insert(mynewobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on insert function, giving up' % vars(mynewobject))
+                            if retry:
+                                self._retry.insert(0,Retry(sqlobject))
+                                self.log.info('Failed to process object %s, added to retry queue' % vars(mynewobject))
+                            else:
+                                self.log.critical('Permanently failed prosessing object %s' % vars(mynewobject))
                     elif sqlobject.Change_log.event_type == 'UPDATE':
                         if not self.update(myoldobject, mynewobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s on update function, retrying' % vars(mynewobject))
-                            if not self.update(myoldobject, mynewobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on update function, giving up' % vars(mynewobject))
+                            if retry:
+                                self._retry.insert(0,Retry(sqlobject))
+                                self.log.info('Failed to process object %s, added to retry queue' % vars(mynewobject))
+                            else:
+                                self.log.critical('Permanently failed prosessing object %s' % vars(mynewobject))
                     elif sqlobject.Change_log.event_type == 'DELETE':
                         if not self.delete(myoldobject, sqlobject.Change_log.table):
-                            self.log.error('Try 1: Error processing object %s delete function, retrying' % vars(myoldobject))
-                            if not self.delete(myoldobject, sqlobject.Change_log.table):
-                                self.log.error('Try 2: Error processing object %s on delete function, giving up' % vars(myoldobject))
+                            if retry:
+                                self._retry.insert(0,Retry(sqlobject))
+                                self.log.info('Failed to process object %s, added to retry queue' % vars(myoldobject))
+                            else:
+                                self.log.critical('Permanently failed prosessing object %s' % vars(myoldobject))
             except Exception as e:
                 self.log.exception(e)
                 self.log.error('Error processing object %s' % vars(sqlobject))

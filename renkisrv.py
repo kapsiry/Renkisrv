@@ -21,7 +21,7 @@ x = logging.getLogger()
 h = logging.StreamHandler()
 h.setFormatter(formatter)
 x.addHandler(h)
-x.setLevel(logging.DEBUG)
+x.setLevel(logging.WARNING)
 
 
 config_variables = [
@@ -45,9 +45,17 @@ class RenkiSrv(object):
         if self.conf.debug:
             self.log.setLevel(logging.DEBUG)
             h.setLevel(logging.DEBUG)
+            try:
+                x.setLevel(logging.DEBUG)
+            except:
+                pass
         else:
-            self.conf.setLevel(logging.WARNING)
+            self.log.setLevel(logging.WARNING)
             h.setLevel(logging.WARNING)
+            try:
+                x.setLevel(logging.WARNING)
+            except:
+                pass
         self.log.debug("Initializing RenkiSrv")
         self.workers = []
         self.workqueue = []
@@ -175,7 +183,6 @@ class RenkiSrv(object):
             except OperationalError as e:
                 # postgresql disconnected.
                 self.log.error('Postgresql connection lost, trying to reconnect')
-                self.log.exception(e)
                 self.reconnect()
             except ValueError as e:
                 self.srv.session.rollback()
@@ -199,13 +206,16 @@ class RenkiSrv(object):
                 self.workers[num] = worker
                 for work in self.workqueue:
                     self.workers[num]._add(work)
-                self.log.info('Service %s restarted and pending %s works send to it' % (self.workers[num].name, len(self.workqueue)))
+                self.log.info('Service %s restarted and pending %s works send to it' % (
+                               self.workers[num].name, len(self.workqueue)))
 
     def get_changes(self):
         """Get all database changes made after latest check"""
         retval = []
         # get changes from change_log view
-        changes = self.srv.session.query(Change_log).filter(Change_log.transaction_id > self.latest_transaction).order_by(Change_log.t_change_log_id).all()
+        changes = self.srv.session.query(Change_log).filter(
+                        Change_log.transaction_id > self.latest_transaction
+                        ).order_by(Change_log.t_change_log_id).all()
 
         ## do here some duplicate check
         # delete updates and inserts if also delete to same row
