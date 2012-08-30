@@ -55,7 +55,6 @@ class RenkiServer(renkiserver.RenkiServer):
         if sqlobject.server not in self.conf.hostnames:
             # not my bussines
             return True
-        self.log.debug('Creating some firewall configs here...')
         if not sqlobject.unix_id:
             self.log.error('Cannot add port %s, unix_id unknown' % sqlobject.port)
             return True

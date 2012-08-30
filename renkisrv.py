@@ -147,7 +147,6 @@ class RenkiSrv(object):
     def feed_workers(self):
         """Get changes and add them to workers"""
         try:
-            #sleep(2)
             changes = self.get_changes()
         except Exception as e:
             self.log.error('BUG: Cannot get changes')
@@ -168,7 +167,7 @@ class RenkiSrv(object):
         self.log.info('Waiting for notifications on channel "sqlobjectupdate"')
         while True:
             try:
-                # close open transactions if any()
+                # close open transactions if any
                 self.srv.session.commit()
                 if select.select([self.conn],[],[],30) == ([],[],[]):
                     self.log.debug('Timeout')
@@ -211,14 +210,15 @@ class RenkiSrv(object):
                 self.log.info('Service %s restarted and pending %s works send to it' % (
                                self.workers[num].name, len(self.workqueue)))
 
-    def get_changes(self):
+    def get_changes(self, transaction_id=None):
         """Get all database changes made after latest check"""
         retval = []
+        if not transaction_id:
+            transaction_id = self.latest_transaction
         # get changes from change_log view
         changes = self.srv.session.query(Change_log).filter(
-                        Change_log.transaction_id > self.latest_transaction
+                        Change_log.transaction_id > transaction_id
                         ).order_by(Change_log.t_change_log_id).all()
-
         ## do here some duplicate check
         # delete updates and inserts if also delete to same row
         undups = []
@@ -237,15 +237,12 @@ class RenkiSrv(object):
                         keep = False
                 if keep:
                     undups.append(change)
-        for change in changes:
+        for change in undups:
             # loop over all changes, ignore unknown tables
             if change.table in self.srv.tables:
                 self.log.debug('Action %s in table %s' % (change.event_type, change.table))
                 results = []
                 self.log.debug("Transaction_id: %s" % str(change.transaction_id))
-                """results = self.srv.session.execute("SELECT *,xmin,xmax FROM %s WHERE xmin = :transaction" % change.table,
-                    {'transaction' : str(change.transaction_id)},
-                    mapper=self.srv.tables[change.table]).fetchall()"""
                 try:
                     table = self.srv.tables[change.table]
                     #self.log.debug('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)

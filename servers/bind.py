@@ -355,7 +355,6 @@ class RenkiServer(renkiserver.RenkiServer):
     def delete(self, sqlobject, table):
         """Process dns configs to server"""
         if table == 't_domains':
-            self.log.debug('Deleting some dns configs here...')
             self.log.debug('Domain name: %s' % sqlobject.name)
             retval = self.delete_zone(sqlobject)
             if retval:

@@ -329,9 +329,7 @@ class RenkiServer(renkiserver.RenkiServer):
     def insert(self, sqlobject, table):
         """Process apache configs to server"""
         if table == 's_vhosts':
-            self.log.debug('Creating some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)
-            self.log.debug('%s' % vars(sqlobject))
             vhost = Vhost(self, sqlobject)
             self.log.debug(vhost.as_text())
             vhost.write()
@@ -341,9 +339,7 @@ class RenkiServer(renkiserver.RenkiServer):
     def update(self, old_sqlobject, new_sqlobject, table):
         """Process apache configs to server"""
         if table == 's_vhosts':
-            self.log.debug('Updating some apache configs here...')
             self.log.debug('Vhost name: %s' % new_sqlobject.name)
-            self.log.debug('%s' % vars(new_sqlobject))
             vhost = Vhost(self, sqlobject)
             vhost.write()
             self.reload_apache()
@@ -352,7 +348,6 @@ class RenkiServer(renkiserver.RenkiServer):
     def delete(self, sqlobject, table):
         """Process apache configs to server"""
         if table == 's_vhosts':
-            self.log.debug('Deleting some apache configs here...')
             self.log.debug('Vhost name: %s' % sqlobject.name)
             vhost = Vhost(self, sqlobject)
             vhost.delete()
