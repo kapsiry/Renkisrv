@@ -63,7 +63,7 @@ class RenkiServer(threading.Thread):
                 try:
                     # Trust objects are in time order
                     retryobject = self._retry.pop()
-                    if retryobject.timestamp < (datetime.now() - timedelta(seconds=10)):
+                    if retryobject.timestamp < (datetime.now() - timedelta(seconds=30)):
                         sqlobject = retryobject.object
                         retry = False
                     else:

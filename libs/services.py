@@ -60,8 +60,12 @@ class Services():
         self.db = create_engine(connstring,encoding='utf-8', echo=self.verbose,
                                 pool_recycle=120)
 
-    def getSession(self):
+    def getSession(self, map_tables=True):
         """Function to get session"""
+        if not map_tables:
+            Session = sessionmaker(bind=self.db)
+            self.session = Session()
+            return
         try:
             metadata = MetaData(self.db)
             change_log = Table('change_log', metadata,

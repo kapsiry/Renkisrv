@@ -12,7 +12,7 @@ import logging
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from psycopg2 import OperationalError, DatabaseError
+from psycopg2 import OperationalError as psycopg2_OperationalError, DatabaseError
 
 from time import sleep
 
@@ -101,24 +101,26 @@ class RenkiSrv(object):
         while 1:
             try:
                 self.srv.session.rollback()
+                self.srv.db = None
+                self.srv.connect()
+                self.srv.getSession(map_tables=False)
                 self.connect()
                 self.cursor.execute('SELECT 1')
                 self.cursor.execute('LISTEN sqlobjectupdate')
                 self.log.info('Connected to database')
                 break
             except OperationalError as e:
-                #log.exception(e)
                 pass
             except DatabaseError as e:
-                log.exception(e)
-            except Exception as e:
-                log.exception(e)
+                self.log.exception(e)
+            except:
+                self.log.debug('Unknown error %s' % sys.exc_info()[0])
             if first:
                 # don't print text once in five seconds
                 self.log.error('Database not available')
                 first = False
             sleep(5)
-        #TODO needs to check works missed on break
+        # TODO: needs to check works missed on break
         self.feed_workers()
         self.log.error('Reconnected to database')
 
@@ -180,7 +182,7 @@ class RenkiSrv(object):
                         notify = self.conn.notifies.pop()
                         self.log.info('Got notify: pid: %s' % notify.pid)
                         self.feed_workers()
-            except OperationalError as e:
+            except psycopg2_OperationalError as e:
                 # postgresql disconnected.
                 self.log.error('Postgresql connection lost, trying to reconnect')
                 self.reconnect()

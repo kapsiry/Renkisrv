@@ -21,9 +21,9 @@ from sqlalchemy.orm.exc import NoResultFound
 
 # Bind config service for renki
 # TODO:
-# dns update
 # ns-server settings from database
 #
+
 __version__ = '0.0.2'
 
 class AlreadyExists(Exception):
@@ -108,9 +108,6 @@ class RenkiServer(renkiserver.RenkiServer):
             # this server is not master
             return True
         value = str(sqlobject.value).split('/')[0]
-        if value[-1].isalpha():
-            # last not number or .
-            value += '.'
         update = dns.update.Update(str(domain.name), keyring=self.keyring,
                     keyalgorithm=str(self.conf.bind_secret_algorithm).lower())
         if delete:
@@ -237,7 +234,7 @@ class RenkiServer(renkiserver.RenkiServer):
                 f.write('%s\n' % sqlobject.minimum_cache_time)
                 f.write(');\n')
                 for dns_server in dns_servers:
-                    f.write(' IN NS %s.\n' % dns_server.value)
+                    f.write(' IN NS %s\n' % dns_server.value)
                 f.close()
             except IOError as e:
 			    self.log.error('Cannot write to zone file %s' % self.zone_file(sqlobject.name))
