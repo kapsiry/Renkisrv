@@ -18,6 +18,7 @@ from dns.tsig import PeerBadKey
 from dns.exception import DNSException, FormError
 
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import OperationalError
 
 # Bind config service for renki
 # TODO:
@@ -72,7 +73,7 @@ class RenkiServer(renkiserver.RenkiServer):
             zone = dns.zone.from_xfr(xfr)
             rdataset = zone.find_rdataset(key, rdtype=ttype)
             for rdata in rdataset:
-                if ttype in ['NS','CNAME']:
+                if ttype in ['NS','CNAME', 'PTR']:
                     address = rdata.target
                 elif ttype == 'MX':
                     address = rdata.exchange
@@ -192,9 +193,15 @@ class RenkiServer(renkiserver.RenkiServer):
 
     def get_dns_servers(self, sqlobject):
         """Get NS servers for domain given in sqlobject"""
-        return self.srv.session.query(T_dns_records).filter(
-        T_dns_records.t_domains_id == sqlobject.t_domains_id,
-        T_dns_records.type == 'NS').all()
+        try:
+            retval = self.srv.session.query(T_dns_records).filter(
+            T_dns_records.t_domains_id == sqlobject.t_domains_id,
+            T_dns_records.type == 'NS').all()
+            self.srv.session.commit()
+            return retval
+        except OperationalError as e:
+            self.log.exception(e)
+            return []
 
     def zone_file(self, name):
         """Return zonefile name"""
@@ -355,7 +362,7 @@ class RenkiServer(renkiserver.RenkiServer):
     def delete(self, sqlobject, table):
         """Process dns configs to server"""
         if table == 't_domains':
-            self.log.debug('Domain name: %s' % sqlobject.name)
+            self.log.debug('Deleting domain: %s' % sqlobject.name)
             retval = self.delete_zone(sqlobject)
             if retval:
                 self.reload()

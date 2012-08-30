@@ -14,6 +14,7 @@ __version__ = '0.0.1'
 def create_dirs(vhost):
     # This is executed as subprocess
     # logdir
+    os.umask (072)
     logdir = vhost.log_dir()
     if not os.path.isdir(logdir):
         try:
@@ -34,6 +35,7 @@ def create_dirs(vhost):
     try:
         if not os.path.isdir(vhost.documentroot()):
             recursive_mkdir(vhost.documentroot())
+            os.chmod(vhost.documentroot(), 0705)
     except Exception as e:
         vhost.main.log.error('Cannot create document root!')
         vhost.main.log.exception(e)
@@ -42,6 +44,7 @@ def create_dirs(vhost):
     vhost_basedir = vhost.documentroot().rsplit('/')[:-1]
     vhost_basedir[0] = '/%s' % vhost_basedir[0]
     vhost_basedir = os.path.join(*vhost_basedir)
+    os.chmod(vhost_basedir, 0701)
     # create logs symlink
     link = os.path.join(vhost_basedir, 'log')
     if os.path.exists(link) and not os.path.islink(link):
@@ -109,6 +112,7 @@ class Vhost(object):
         return self.format_path('apache_log_dir', ssl=ssl)
 
     def format_path(self, conf, ssl):
+        conf = str(conf)
         if conf not in self.main.conf.__dict__:
             raise RuntimeError('BUG: unexist conf variable %s' % conf)
         if ssl:
@@ -305,7 +309,7 @@ class RenkiServer(renkiserver.RenkiServer):
     def __init__(self):
         renkiserver.RenkiServer.__init__(self, name='apache')
         self.tables = ['s_vhosts']
-        self.conf_options = [
+        self.config_options = [
             Option('apache_ssl', default=False, module='apache'),
             Option('apache_ssl_domain', mandatory=True, variable='apache_ssl', type='str', module='apache'),
             Option('apache_log_dir', default='/var/log/apache2/%(vhost)s', type='str', module='apache'),

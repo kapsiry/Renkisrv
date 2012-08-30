@@ -4,10 +4,12 @@
 __version__ = 'v0.1'
 
 from libs.services import *
+from libs.conf import Option, Config
+from libs.checker import Checker
+
 import sys
 from os import path
 import select
-from libs.conf import Option, Config
 import logging
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
@@ -59,6 +61,7 @@ class RenkiSrv(object):
         self.log.debug("Initializing RenkiSrv")
         self.workers = []
         self.workqueue = []
+        self.checker = None
         self.populate_workers()
         try:
             self.srv = Services(self.conf)
@@ -68,6 +71,7 @@ class RenkiSrv(object):
             sys.exit(1)
         for worker in self.workers:
             worker.srv = self.srv
+        self.checker = Checker(self)
         self.conn = None
         self.cursor = None
         self.connect()
@@ -78,7 +82,10 @@ class RenkiSrv(object):
         except:
             self.latest_transaction = 0
         # do not leave open transaction
-        self.srv.session.commit()
+        try:
+            self.srv.session.commit()
+        except OperationalError as e:
+            self.log.exception(e)
 
     def connect(self):
         """Create self.conn"""
@@ -155,7 +162,8 @@ class RenkiSrv(object):
         if changes:
             self.workqueue.append(change)
             for worker in self.workers:
-                worker._add(change)
+                if sqlobject.Change_log.table in worker.tables:
+                    worker._add(change)
 
     def mainloop(self):
         """Run this loop until ctrl + c"""
@@ -163,6 +171,7 @@ class RenkiSrv(object):
         self.log.info('Starting services')
         for worker in self.workers:
             worker.start()
+        self.checker.start()
         self.cursor.execute('LISTEN sqlobjectupdate;')
         self.log.info('Waiting for notifications on channel "sqlobjectupdate"')
         while True:
@@ -210,6 +219,33 @@ class RenkiSrv(object):
                 self.log.info('Service %s restarted and pending %s works send to it' % (
                                self.workers[num].name, len(self.workqueue)))
 
+            if self.checker.isAlive() is not True:
+                if not self.checker.success:
+                    self.log.info('Checker exited unsuccessfully, restarting!')
+                    self.checker = Checker(self)
+                    self.checker.start()
+
+    def unduplicator(self, changes):
+        """Do some duplicate check
+        delete updates and inserts if also delete to same row.
+        This is generator.
+        """
+        data_id_index = {}
+        for change in changes:
+            if change.data_id not in data_id_index:
+                data_id_index[change.data_id] = []
+            data_id_index[change.data_id].append(change)
+        for change in changes:
+            if change.event_type == 'DELETE':
+                yield(change)
+            elif change.event_type in ['INSERT', 'UPDATE']:
+                keep = True
+                for c in data_id_index[change.data_id]:
+                    if c.event_type == 'DELETE' and c.table == change.table:
+                        keep = False
+                if keep:
+                    yield(change)
+
     def get_changes(self, transaction_id=None):
         """Get all database changes made after latest check"""
         retval = []
@@ -219,25 +255,7 @@ class RenkiSrv(object):
         changes = self.srv.session.query(Change_log).filter(
                         Change_log.transaction_id > transaction_id
                         ).order_by(Change_log.t_change_log_id).all()
-        ## do here some duplicate check
-        # delete updates and inserts if also delete to same row
-        undups = []
-        data_id_index = {}
-        for change in changes:
-            if change.data_id not in data_id_index:
-                data_id_index[change.data_id] = []
-            data_id_index[change.data_id].append(change)
-        for change in changes:
-            if change.event_type == 'DELETE':
-                undups.append(change)
-            elif change.event_type in ['INSERT', 'UPDATE']:
-                keep = True
-                for c in data_id_index[change.data_id]:
-                    if c.event_type == 'DELETE' and c.table == change.table:
-                        keep = False
-                if keep:
-                    undups.append(change)
-        for change in undups:
+        for change in self.unduplicator(changes):
             # loop over all changes, ignore unknown tables
             if change.table in self.srv.tables:
                 self.log.debug('Action %s in table %s' % (change.event_type, change.table))
@@ -296,6 +314,10 @@ class RenkiSrv(object):
 
     def killall(self):
         """Kill all workers"""
+        try:
+            self.checker._kill()
+        except Exception as e:
+            self.log.exception(e)
         for worker in self.workers:
             try:
                 self.log.info('Stopping service %s' % worker.name)
