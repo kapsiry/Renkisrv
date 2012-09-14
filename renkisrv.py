@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-__version__ = '0.0.3'
+__version__ = 'v0.1'
 
-from services import *
+from libs.services import *
+from libs.conf import Option, Config
+from libs.checker import Checker
+
 import sys
+from os import path
 import select
-from renkicfg import *
 import logging
-#from sqlalchemy import select as alchemyselect
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from psycopg2 import OperationalError, DatabaseError
+from psycopg2 import OperationalError as psycopg2_OperationalError, DatabaseError
 
 from time import sleep
 
@@ -21,24 +23,55 @@ x = logging.getLogger()
 h = logging.StreamHandler()
 h.setFormatter(formatter)
 x.addHandler(h)
-x.setLevel(logging.DEBUG)
+x.setLevel(logging.WARNING)
+
+
+config_variables = [
+    Option('servers', default=None, type='list'),
+    Option('services_username', mandatory=True, type='str'),
+    Option('services_password', mandatory=True, type='str'),
+    Option('services_port', default=None, type='int'),
+    Option('services_server', mandatory=True, type='str'),
+    Option('services_database', mandatory=True, type='str'),
+    Option('debug', default=False, type='bool'),
+    Option('database_debug', default=False, type='bool'),
+    Option('log_file', default=None),
+    Option('hostnames', mandatory=True)
+]
 
 class RenkiSrv(object):
     def __init__(self, conf):
         self.log = logging.getLogger('renkisrv')
-        self.conf = conf
+        self.conf = Config(config_variables, config_file)
+        h = logging.FileHandler(filename="renkiserv.log")
+        if self.conf.debug:
+            self.log.setLevel(logging.DEBUG)
+            h.setLevel(logging.DEBUG)
+            try:
+                x.setLevel(logging.DEBUG)
+            except:
+                pass
+        else:
+            self.log.setLevel(logging.WARNING)
+            h.setLevel(logging.WARNING)
+            try:
+                x.setLevel(logging.WARNING)
+            except:
+                pass
         self.log.debug("Initializing RenkiSrv")
         self.workers = []
         self.workqueue = []
+        self.checker = None
         self.populate_workers()
         try:
-            self.srv = Services(conf)
+            self.srv = Services(self.conf)
         except RuntimeError as e:
             log.exception(e)
             log.error("Cannot login to server, please check config")
             sys.exit(1)
         for worker in self.workers:
             worker.srv = self.srv
+        self.checker = Checker(self)
         self.conn = None
         self.cursor = None
         self.connect()
@@ -49,7 +82,10 @@ class RenkiSrv(object):
         except:
             self.latest_transaction = 0
         # do not leave open transaction
-        self.srv.session.commit()
+        try:
+            self.srv.session.commit()
+        except OperationalError as e:
+            self.log.exception(e)
 
     def connect(self):
         """Create self.conn"""
@@ -64,23 +100,36 @@ class RenkiSrv(object):
         if not self.srv:
             self.srv = Services(self.conf)
         first = True
+        try:
+            self.conn.close()
+        except:
+            pass
+        self.conn = None
         while 1:
             try:
+                self.srv.session.rollback()
+                self.srv.db = None
+                self.srv.connect()
+                self.srv.getSession(map_tables=False)
                 self.connect()
                 self.cursor.execute('SELECT 1')
                 self.cursor.execute('LISTEN sqlobjectupdate')
                 self.log.info('Connected to database')
                 break
             except OperationalError as e:
-                log.exception(e)
+                pass
             except DatabaseError as e:
-                log.exception(e)
+                self.log.exception(e)
+            except:
+                self.log.debug('Unknown error %s' % sys.exc_info()[0])
             if first:
                 # don't print text once in five seconds
                 self.log.error('Database not available')
                 first = False
-            self.conn = None
             sleep(5)
+        # TODO: needs to check works missed on break
+        self.feed_workers()
+        self.log.error('Reconnected to database')
 
     def populate_workers(self):
         """Populate workers list with service workers"""
@@ -89,17 +138,22 @@ class RenkiSrv(object):
                 module = __import__('servers.%s' % server)
                 worker = vars(module)[server].RenkiServer()
                 worker.conf = self.conf
+                for option in worker.config_options:
+                    option.module = server
+                    self.conf.add_setting(option)
                 self.workers.append(worker)
                 self.conf.add_tables(worker.tables)
-            except ImportError:
-                self.log.error('Cannot import nonexistent server %s' % server)
-                self.log.error('Check config')
+            except ImportError as e:
+                if e.args[0] == 'No module named %s' % server:
+                    self.log.error('Cannot import nonexistent server %s' % server)
+                    self.log.error('Check config')
+                else:
+                    self.log.exception(e)
                 sys.exit(1)
 
     def feed_workers(self):
         """Get changes and add them to workers"""
         try:
-            #sleep(2)
             changes = self.get_changes()
         except Exception as e:
             self.log.error('BUG: Cannot get changes')
@@ -108,7 +162,8 @@ class RenkiSrv(object):
         if changes:
             self.workqueue.append(change)
             for worker in self.workers:
-                worker.add(change)
+                if sqlobject.Change_log.table in worker.tables:
+                    worker._add(change)
 
     def mainloop(self):
         """Run this loop until ctrl + c"""
@@ -116,11 +171,12 @@ class RenkiSrv(object):
         self.log.info('Starting services')
         for worker in self.workers:
             worker.start()
+        self.checker.start()
         self.cursor.execute('LISTEN sqlobjectupdate;')
         self.log.info('Waiting for notifications on channel "sqlobjectupdate"')
         while True:
             try:
-                # close open transactions if any()
+                # close open transactions if any
                 self.srv.session.commit()
                 if select.select([self.conn],[],[],30) == ([],[],[]):
                     self.log.debug('Timeout')
@@ -130,13 +186,18 @@ class RenkiSrv(object):
                         self.reconnect()
                 else:
                     self.conn.poll()
-                    print("%s" % self.conn.notifies)
                     while self.conn.notifies:
                         notify = self.conn.notifies.pop()
                         self.log.info('Got notify: pid: %s' % notify.pid)
                         self.feed_workers()
-            except OperationalError as e:
-                log.exception(e)
+            except psycopg2_OperationalError as e:
+                # postgresql disconnected.
+                self.log.error('Postgresql connection lost, trying to reconnect')
+                self.reconnect()
+            except ValueError as e:
+                self.srv.session.rollback()
+                self.log.exception(e)
+                sleep(5)
             restart = []
 
             for worker in range(0,len(self.workers)):
@@ -154,18 +215,21 @@ class RenkiSrv(object):
                 worker.start()
                 self.workers[num] = worker
                 for work in self.workqueue:
-                    self.workers[num].add(work)
-                self.log.info('Service %s restarted and pending %s works send to it' % (self.workers[num].name, len(self.workqueue)))
+                    self.workers[num]._add(work)
+                self.log.info('Service %s restarted and pending %s works send to it' % (
+                               self.workers[num].name, len(self.workqueue)))
 
-    def get_changes(self):
-        """Get all database changes made after latest check"""
-        retval = []
-        # get changes from change_log view
-        changes = self.srv.session.query(Change_log).filter(Change_log.transaction_id > self.latest_transaction).order_by(Change_log.t_change_log_id).all()
+            if self.checker.isAlive() is not True:
+                if not self.checker.success:
+                    self.log.info('Checker exited unsuccessfully, restarting!')
+                    self.checker = Checker(self)
+                    self.checker.start()
 
-        ## do here some duplicate check
-        # delete updates and inserts if also delete to same row
-        undups = []
+    def unduplicator(self, changes):
+        """Do some duplicate check
+        delete updates and inserts if also delete to same row.
+        This is generator.
+        """
         data_id_index = {}
         for change in changes:
             if change.data_id not in data_id_index:
@@ -173,23 +237,30 @@ class RenkiSrv(object):
             data_id_index[change.data_id].append(change)
         for change in changes:
             if change.event_type == 'DELETE':
-                undups.append(change)
+                yield(change)
             elif change.event_type in ['INSERT', 'UPDATE']:
                 keep = True
                 for c in data_id_index[change.data_id]:
                     if c.event_type == 'DELETE' and c.table == change.table:
                         keep = False
                 if keep:
-                    undups.append(change)
-        for change in changes:
+                    yield(change)
+
+    def get_changes(self, transaction_id=None):
+        """Get all database changes made after latest check"""
+        retval = []
+        if not transaction_id:
+            transaction_id = self.latest_transaction
+        # get changes from change_log view
+        changes = self.srv.session.query(Change_log).filter(
+                        Change_log.transaction_id > transaction_id
+                        ).order_by(Change_log.t_change_log_id).all()
+        for change in self.unduplicator(changes):
             # loop over all changes, ignore unknown tables
             if change.table in self.srv.tables:
                 self.log.debug('Action %s in table %s' % (change.event_type, change.table))
                 results = []
                 self.log.debug("Transaction_id: %s" % str(change.transaction_id))
-                """results = self.srv.session.execute("SELECT *,xmin,xmax FROM %s WHERE xmin = :transaction" % change.table,
-                    {'transaction' : str(change.transaction_id)},
-                    mapper=self.srv.tables[change.table]).fetchall()"""
                 try:
                     table = self.srv.tables[change.table]
                     #self.log.debug('CLASS MAPPER: %s' % class_mapper(self.srv.tables[change.table]).primary_key[0].name)
@@ -231,7 +302,7 @@ class RenkiSrv(object):
                     for result in results:
                         self.workqueue.append(change)
                         for worker in self.workers:
-                            worker.add(result)
+                            worker._add(result)
                     self.latest_transaction = change.transaction_id
                     # close open transactions if any
                     self.srv.session.commit()
@@ -243,34 +314,29 @@ class RenkiSrv(object):
 
     def killall(self):
         """Kill all workers"""
+        try:
+            self.checker._kill()
+        except Exception as e:
+            self.log.exception(e)
         for worker in self.workers:
             try:
                 self.log.info('Stopping service %s' % worker.name)
-                worker.kill()
+                worker._kill()
             except Exception as e:
                 self.log.exception(e)
 
 if __name__ == '__main__':
     log = logging.getLogger("renkisrv")
     log.info("Welcome to Renkisrv version %s" % __version__)
+    config_file = path.join(path.dirname(path.abspath(__file__)),'config.py')
     try:
-        config = Config()
-    except ConfigError as error:
-        log.error('Config error: %s' % error)
+        renkisrv = RenkiSrv(config_file)
+    except Exception as error:
+        cla, exc, trbk = sys.exc_info()
+        log.error('%s: %s' % (cla.__name__, error))
+        log.exception(error)
+        log.critical('Renkisrv stopped')
         sys.exit(1)
-    if config.debug:
-        x.setLevel(logging.DEBUG)
-    else:
-        x.setLevel(logging.WARNING)
-    h = logging.FileHandler(filename="renkiserv.log")
-    try:
-        if config.debug:
-            h.setLevel(logging.DEBUG)
-        else:
-            h.setLevel(logging.WARNING)
-    except:
-        h.setLevel(logging.WARNING)
-    renkisrv = RenkiSrv(config)
     try:
         renkisrv.mainloop()
     except KeyboardInterrupt:

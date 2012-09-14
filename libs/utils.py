@@ -29,7 +29,7 @@ def drop_privileges(uid_name='nobody', gid_name='nogroup'):
     # Ensure a very conservative umask
     old_umask = os.umask(077)
 
-def recursive_mkdir(directory):
+def recursive_mkdir(directory, perms=0701):
     """Python version of mkdir -p dir"""
     path = []
     directory = directory.rstrip('/')
@@ -44,6 +44,8 @@ def recursive_mkdir(directory):
             raise IOError('Path %s is exist but not directory' % subpath)
         if not os.path.exists(subpath) and not os.path.isdir(subpath):
             os.mkdir(subpath)
+            # give minimium permissions
+            os.chmod(subpath, perms)
     return True
 
 def copy(source, dest):

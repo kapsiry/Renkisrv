@@ -1,4 +1,4 @@
-import renkiserver
+from libs import renkiserver
 import fileinput
 import subprocess
 from tempfile import mkstemp
@@ -11,8 +11,7 @@ __version__ = '0.0.1'
 
 class RenkiServer(renkiserver.RenkiServer):
     def __init__(self):
-        renkiserver.RenkiServer.__init__(self)
-        self.name = 'user_ports'
+        renkiserver.RenkiServer.__init__(self, name='user_ports')
         self.tables = ['s_user_ports']
         self.config_file = '/etc/ports.conf'
 
@@ -51,13 +50,11 @@ class RenkiServer(renkiserver.RenkiServer):
 
     def insert(self, sqlobject, table):
         """Generate firewall rule"""
-        print('TABLE: %s' % table)
         if table != 's_user_ports':
             return True
         if sqlobject.server not in self.conf.hostnames:
             # not my bussines
             return True
-        self.log.debug('Creating some firewall configs here...')
         if not sqlobject.unix_id:
             self.log.error('Cannot add port %s, unix_id unknown' % sqlobject.port)
             return True

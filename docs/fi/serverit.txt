@@ -1,0 +1,33 @@
+=== Serverit ===
+
+Olennainen osa renkisrv:tä on palvelimelle muutoksia tekevät serverit. Serverit
+ovat käytännössä renkisrv:n moduuleita, joita renkisrv kutsuu, kun serverin 
+käyttämiin tauluihin tehdään muutoksia.
+
+== Toteutus ==
+
+Serveri on libs.renkiserver.Renkiserver luokan perivä Python luokka. Luokan
+nimi tulee olla Renkiserver, muuten Renkisrv ei osaa importata sitä.
+
+== Muuttujat ==
+
+Server luokassa on voi käyttää seuraavia muuttujia.
+
+- self.config_options: lista libs.conf.Options luokkia, millä voi määrittää
+asetuksia.
+- self.name (tai name Renkisrv:n init-argumenttina) Kertoo serverin nimen, nimeä
+käytetään palvelimen nimenä logeissa.
+- self.tables: lista tauluista, joita server käyttää.
+
+- self.conf: libs.conf.Config() instanssi, joka sisältää palvelimen conffin.
+- self.srv: services.Services() instanssi, jolla on mahdollista käyttää tietokantaa.
+
+Huom! self.conf ja self.srv asetetaan vasta __init__(self) kutsun jälkeen
+
+== Funktiot ==
+
+insert(new) funktio suoritetaan, kun tauluun tehdään lisäys.
+update(new, old) funktio suoritetaan, kun tauluun tehdään muutoksia.
+delete(old) funktio suoritetaan, kun taulusta poistetaan rivi.
+
+New ja old ovat sqlalchemy objecteja, jotka sisältävät rivin tiedot.
