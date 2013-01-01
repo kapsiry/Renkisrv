@@ -75,7 +75,9 @@ class Option:
 class Config():
     def __init__(self, variables, config_file):
         self.variables = variables
-        self.variables_dict = dict({value.name: value for value in self.variables})
+        self.variables_dict = {}
+        for value in self.variables:
+            self.variables_dict[value.name] = value
         try:
             self.values = imp.load_source('config', config_file)
         except IOError:
